@@ -918,6 +918,25 @@ function getGPS() {
 }
 
 // ── PDF EXPORT MIT WASSERZEICHEN ──────────────────────
+// Build a watermark tile as an image (rotated via canvas, not jsPDF text-angle)
+function buildWatermarkTile() {
+  const c = document.createElement('canvas');
+  const size = 600;
+  c.width = size; c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  ctx.translate(size / 2, size / 2);
+  ctx.rotate(-Math.PI / 4); // -45deg
+  ctx.font = 'bold 34px Arial, sans-serif';
+  ctx.fillStyle = 'rgba(0, 27, 67, 0.07)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = -2; i <= 2; i++) {
+    ctx.fillText('Created by M.G.', 0, i * 80);
+  }
+  return c.toDataURL('image/png');
+}
+
 async function exportPDF() {
   const overlay = document.getElementById('export-overlay');
   overlay.classList.add('active');
@@ -925,14 +944,26 @@ async function exportPDF() {
   // Hide action buttons during capture
   document.querySelector('.actions').style.display = 'none';
 
+  // Small delay so overlay paints before heavy capture work
+  await new Promise(r => setTimeout(r, 50));
+
   try {
     const form = document.getElementById('main-form');
     const header = document.querySelector('.doc-header');
 
+    // iOS Safari has a canvas area limit (~16.7 million px / ~4096px per side
+    // depending on device). Cap the render scale based on element size.
+    const formRect = form.getBoundingClientRect();
+    const MAX_DIM = 4000; // safe px ceiling for a single canvas dimension
+    let scale = 2;
+    if (formRect.height * scale > MAX_DIM) {
+      scale = Math.max(1, Math.floor((MAX_DIM / formRect.height) * 10) / 10);
+    }
+
     // Capture header
-    const canvasHeader = await html2canvas(header, { scale: 2, useCORS: true, backgroundColor: '#1A4A6B' });
+    const canvasHeader = await html2canvas(header, { scale: scale, useCORS: true, backgroundColor: '#ffffff' });
     // Capture form body
-    const canvasForm = await html2canvas(form, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const canvasForm = await html2canvas(form, { scale: scale, useCORS: true, backgroundColor: '#ffffff' });
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -947,87 +978,79 @@ async function exportPDF() {
     pdf.addImage(canvasHeader.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, contentW, Math.min(headerH, 30));
 
     // Add form body – paginate if needed
-    const formData = canvasForm.toDataURL('image/jpeg', 0.92);
     const totalFormH = (canvasForm.height / canvasForm.width) * contentW;
     const startY = margin + Math.min(headerH, 30) + 3;
     const availH = pageH - startY - margin;
 
     if (totalFormH <= availH) {
+      const formData = canvasForm.toDataURL('image/jpeg', 0.92);
       pdf.addImage(formData, 'JPEG', margin, startY, contentW, totalFormH);
     } else {
       // Multi-page: slice canvas into pages safely
       const pxPerMm = canvasForm.width / contentW;
       let yPx = 0;
       let firstPage = true;
-      while (yPx < canvasForm.height) {
+      let safety = 0;
+      while (yPx < canvasForm.height && safety < 50) {
+        safety++;
         const sliceAvailH = firstPage ? availH : (pageH - margin * 2);
         const maxSliceHpx = Math.floor(sliceAvailH * pxPerMm);
-        const remainingPx = canvasForm.height - yPx;
-        const sliceHpx = Math.min(maxSliceHpx, remainingPx);
-        if (sliceHpx <= 0) break; // safety guard
+        const remainingPx = Math.floor(canvasForm.height - yPx);
+        const sliceHpx = Math.max(1, Math.min(maxSliceHpx, remainingPx));
+        if (sliceHpx <= 0 || remainingPx <= 0) break;
 
         const sliceCanvas = document.createElement('canvas');
         sliceCanvas.width = canvasForm.width;
-        sliceCanvas.height = Math.max(1, Math.floor(sliceHpx));
+        sliceCanvas.height = sliceHpx;
         const ctx = sliceCanvas.getContext('2d');
-        ctx.drawImage(canvasForm, 0, -Math.floor(yPx), canvasForm.width, canvasForm.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+        ctx.drawImage(canvasForm, 0, -yPx);
         const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.92);
-        const sliceHmm = sliceCanvas.height / pxPerMm;
+        const sliceHmm = sliceHpx / pxPerMm;
         if (!firstPage) { pdf.addPage(); }
         const yPos = firstPage ? startY : margin;
         pdf.addImage(sliceData, 'JPEG', margin, yPos, contentW, sliceHmm);
-        yPx += sliceCanvas.height;
+        yPx += sliceHpx;
         firstPage = false;
       }
     }
 
-    // ── WATERMARK on every page ──
+    // ── WATERMARK on every page (image-based, no text rotation) ──
+    const watermarkTile = buildWatermarkTile();
     const totalPages = pdf.internal.getNumberOfPages();
+    const tileSizeMm = 90;
+
     for (let p = 1; p <= totalPages; p++) {
       pdf.setPage(p);
 
-      // Diagonal watermark text
-      pdf.saveGraphicsState();
-      pdf.setGState(new pdf.GState({ opacity: 0.07 }));
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(38);
-      pdf.setTextColor(0, 27, 67);
-
-      // Rotate around center of page
-      const cx = pageW / 2;
-      const cy = pageH / 2;
-      // Draw multiple diagonal passes
-      for (let i = -2; i <= 2; i++) {
-        pdf.text('Created by M.G.', cx + i * 30, cy + i * 25, {
-          angle: 45,
-          align: 'center'
-        });
+      // Tile the rotated watermark image across the page
+      for (let x = -tileSizeMm / 2; x < pageW + tileSizeMm; x += tileSizeMm) {
+        for (let y = -tileSizeMm / 2; y < pageH + tileSizeMm; y += tileSizeMm) {
+          pdf.addImage(watermarkTile, 'PNG', x, y, tileSizeMm, tileSizeMm);
+        }
       }
-      pdf.restoreGraphicsState();
 
       // Footer on every page
-      pdf.saveGraphicsState();
-      pdf.setGState(new pdf.GState({ opacity: 1 }));
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(7);
       pdf.setTextColor(150, 145, 138);
       const dateStr = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
       pdf.text(`Türblatt Aufmaß · Aufnahmeprotokoll · ${dateStr}`, margin, pageH - 5);
       pdf.text(`Seite ${p} / ${totalPages}`, pageW - margin, pageH - 5, { align: 'right' });
-      // Small watermark in footer
       pdf.setFontSize(6.5);
       pdf.setTextColor(180, 175, 168);
       pdf.text('Created by M.G.', pageW / 2, pageH - 5, { align: 'center' });
-      pdf.restoreGraphicsState();
     }
 
     // Generate filename
-    const projekt = document.getElementById('field-projekt').value.trim().replace(/[^a-zA-Z0-9äöüÄÖÜß\-_]/g, '_').substring(0, 30) || 'Aufmass';
+    const projektEl = document.getElementById('field-projekt');
+    const projekt = (projektEl && projektEl.value.trim().replace(/[^a-zA-Z0-9äöüÄÖÜß\-_]/g, '_').substring(0, 30)) || 'Aufmass';
     const dateFile = new Date().toISOString().slice(0,10);
     pdf.save(`Tuerblatt_${projekt}_${dateFile}.pdf`);
 
   } catch(e) {
-    alert('PDF-Export fehlgeschlagen: ' + e.message);
+    alert('PDF-Export fehlgeschlagen: ' + (e && e.message ? e.message : e));
     console.error(e);
   } finally {
     document.querySelector('.actions').style.display = 'flex';
