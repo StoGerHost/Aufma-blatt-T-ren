@@ -1821,10 +1821,7 @@ function resetForm() {
   let paypalClicked = false;
 
   function checkPayment() {
-    // Already unlocked this session?
-    if (sessionStorage.getItem('pdf_unlocked') === '1') {
-      exportPDF(); return;
-    }
+    // Always show the payment/code gate for every export.
     paypalClicked = false;
     document.getElementById('code-input').value = '';
     document.getElementById('code-msg').textContent = '';
@@ -1848,7 +1845,6 @@ function resetForm() {
   }
 
   function confirmPaypal() {
-    sessionStorage.setItem('pdf_unlocked', '1');
     closePayGate();
     exportPDF();
   }
@@ -1859,7 +1855,6 @@ function resetForm() {
     if (val === EMPLOYEE_CODE) {
       msg.textContent = '✓ Code akzeptiert – PDF wird erstellt …';
       msg.className = 'ok';
-      sessionStorage.setItem('pdf_unlocked', '1');
       setTimeout(() => { closePayGate(); exportPDF(); }, 800);
     } else {
       msg.textContent = '✗ Ungültiger Code.';
