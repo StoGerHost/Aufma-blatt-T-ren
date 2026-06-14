@@ -136,6 +136,19 @@
 
   /* MASS TABLES */
   .mass-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0; }
+  /* During PDF capture, CSS grid layouts (esp. auto-fill/minmax) can
+     confuse html2canvas (IndexSizeError on some mobile renderers).
+     Force simple flex/block layouts while exporting; on-screen design
+     is unaffected since this class is only applied during capture. */
+  .pdf-export-mode .mass-grid { display: block; }
+  .pdf-export-mode .mass-group { display: block; width: 100%; }
+  .pdf-export-mode .mass-row { display: flex; justify-content: space-between; align-items: center; }
+  .pdf-export-mode .mass-row > .mass-label { flex: 1; }
+  .pdf-export-mode .mass-row > .mass-input { flex: 0 0 auto; }
+  /* Note: the .sketch-area repeating-linear-gradient pattern is handled via
+     JS during PDF export (temporarily swapped for a plain background), since
+     small-tile CSS gradient patterns have been observed to trigger
+     IndexSizeError in html2canvas on iOS Safari. See exportPDF(). */
   .mass-group { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin: 6px; }
   .mass-group-title { background: #EEF2F8; padding: 5px 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-bottom: 1px solid var(--border); }
   .mass-row { display: grid; grid-template-columns: 1fr 90px 32px; align-items: center; padding: 4px 10px; border-bottom: 1px solid var(--border); }
@@ -918,32 +931,50 @@ function getGPS() {
 }
 
 // ── PDF EXPORT MIT WASSERZEICHEN (Mehrseiten, sektionsweise) ──
-// Build a watermark tile as an image (rotated via canvas, not jsPDF text-angle)
+// Build a full-page watermark image with repeated diagonal text, drawn
+// entirely on one canvas (avoids many small addImage calls in jsPDF, which
+// can trigger "IndexSizeError" on some mobile renderers when tiled).
 function buildWatermarkTile() {
+  // A4 ratio at a moderate resolution
+  const w = 800;
+  const h = Math.round(w * (297 / 210)); // ~1131
   const c = document.createElement('canvas');
-  const size = 600;
-  c.width = size; c.height = size;
+  c.width = w; c.height = h;
   const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, size, size);
-  ctx.translate(size / 2, size / 2);
-  ctx.rotate(-Math.PI / 4); // -45deg
-  ctx.font = 'bold 34px Arial, sans-serif';
-  ctx.fillStyle = 'rgba(0, 27, 67, 0.07)';
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(0, 27, 67, 0.06)';
+  ctx.font = 'bold 30px Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (let i = -2; i <= 2; i++) {
-    ctx.fillText('Created by M.G.', 0, i * 80);
+
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(-Math.PI / 4); // -45deg
+
+  const stepY = 110;
+  const stepX = 260;
+  const rows = Math.ceil(h / stepY) + 4;
+  const cols = Math.ceil(w / stepX) + 4;
+  for (let r = -rows; r <= rows; r++) {
+    for (let cIdx = -cols; cIdx <= cols; cIdx++) {
+      ctx.fillText('Created by M.G.', cIdx * stepX, r * stepY);
+    }
   }
+  ctx.restore();
+
   return c.toDataURL('image/png');
 }
 
 function drawWatermarkAndFooter(pdf, pageW, pageH, margin, watermarkTile, pageNum, totalPages) {
-  const tileSizeMm = 90;
-  for (let x = -tileSizeMm / 2; x < pageW + tileSizeMm; x += tileSizeMm) {
-    for (let y = -tileSizeMm / 2; y < pageH + tileSizeMm; y += tileSizeMm) {
-      pdf.addImage(watermarkTile, 'PNG', x, y, tileSizeMm, tileSizeMm);
-    }
+  // Single full-page watermark image instead of many tiled addImage calls.
+  // Negative/overflowing coordinates in repeated addImage calls have been
+  // observed to trigger "IndexSizeError" on some mobile renderers.
+  try {
+    pdf.addImage(watermarkTile, 'PNG', 0, 0, pageW, pageH);
+  } catch (wmErr) {
+    console.error('Watermark draw failed:', wmErr);
   }
+
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(7);
   pdf.setTextColor(150, 145, 138);
@@ -953,6 +984,21 @@ function drawWatermarkAndFooter(pdf, pageW, pageH, margin, watermarkTile, pageNu
   pdf.setFontSize(6.5);
   pdf.setTextColor(180, 175, 168);
   pdf.text('Created by M.G.', pageW / 2, pageH - 5, { align: 'center' });
+}
+
+// Convert a canvas to a data URL and immediately free its backing memory.
+// On iOS Safari, repeated html2canvas calls leak canvas memory because the
+// cloned DOM/canvas objects aren't fully released (known WebKit issue).
+// Setting width/height to 0 after extracting the image data releases the
+// backing store immediately, reducing cumulative memory pressure across
+// many sections, which otherwise leads to "IndexSizeError" later in the
+// export (the error appears on whichever canvas operation happens to be
+// the one that crosses the memory limit, not necessarily a "broken" one).
+function toDataURLAndFree(canvas, type, quality) {
+  const data = canvas.toDataURL(type, quality);
+  canvas.width = 0;
+  canvas.height = 0;
+  return data;
 }
 
 // Render a single DOM element to canvas with a safe scale (avoids iOS canvas
@@ -965,7 +1011,544 @@ async function renderElementSafe(el, baseScale) {
   if (longSide * scale > MAX_DIM) {
     scale = Math.max(1, (MAX_DIM / longSide));
   }
-  return html2canvas(el, { scale: scale, useCORS: true, backgroundColor: '#ffffff' });
+  return html2canvas(el, { scale: scale, backgroundColor: '#ffffff', imageTimeout: 0, removeContainer: true });
+}
+
+// Some long sections (e.g. "Beschläge" with many field-rows and custom
+// radio/checkbox styling) can produce a tall canvas that triggers
+// "IndexSizeError" on certain mobile renderers, even below the MAX_DIM
+// per-side limit. As a safety measure, sections taller than CHUNK_THRESHOLD
+// (in CSS px) are split into smaller chunks and rendered separately, each
+// chunk repeating the section title for context.
+const SECTION_CHUNK_THRESHOLD = 900; // CSS px, before scaling (higher = fewer html2canvas calls = less iOS canvas-memory pressure)
+
+async function renderSectionChunks(section, baseScale) {
+  const rect = section.getBoundingClientRect();
+  if (rect.height <= SECTION_CHUNK_THRESHOLD) {
+    return [await renderElementSafe(section, baseScale)];
+  }
+
+  const body = section.querySelector('.section-body');
+  const titleEl = section.querySelector('.section-title');
+  if (!body || !titleEl) {
+    return [await renderElementSafe(section, baseScale)];
+  }
+
+  // Expand "container" children (like .din-grid or .foto-grid) into their
+  // own direct children so very large single elements can also be split.
+  const rawChildren = Array.from(body.children);
+  const children = [];
+  for (const child of rawChildren) {
+    const h = child.getBoundingClientRect().height;
+    if (h > SECTION_CHUNK_THRESHOLD * 1.5 &&
+        (child.classList.contains('din-grid') || child.classList.contains('foto-grid')) &&
+        child.children.length > 1) {
+      children.push(...Array.from(child.children));
+    } else {
+      children.push(child);
+    }
+  }
+
+  if (children.length <= 1) {
+    return [await renderElementSafe(section, baseScale)];
+  }
+
+  // Split the body's children into roughly equal-sized chunks so that no
+  // single rendered chunk approaches the original (too tall) section size.
+  const totalBodyH = children.reduce((sum, c) => sum + c.getBoundingClientRect().height, 0);
+  const numChunks = Math.max(2, Math.ceil(totalBodyH / SECTION_CHUNK_THRESHOLD));
+  const targetH = totalBodyH / numChunks;
+
+  const chunks = [];
+  let currentChildren = [];
+  let currentH = 0;
+
+  for (const child of children) {
+    const h = child.getBoundingClientRect().height;
+    if (currentChildren.length > 0 && currentH + h > targetH && chunks.length < numChunks - 1) {
+      chunks.push(currentChildren);
+      currentChildren = [];
+      currentH = 0;
+    }
+    currentChildren.push(child);
+    currentH += h;
+  }
+  if (currentChildren.length > 0) chunks.push(currentChildren);
+
+  // Fallback safety: if splitting still produced only one chunk
+  // (e.g. one giant child), render the section as-is.
+  if (chunks.length <= 1) {
+    return [await renderElementSafe(section, baseScale)];
+  }
+
+  window.__pdfChunkCount = chunks.length;
+
+  const canvases = [];
+  for (let i = 0; i < chunks.length; i++) {
+    window.__pdfExportStep = (window.__pdfExportStep || '') + ' [Chunk ' + (i+1) + '/' + chunks.length + ']';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'section';
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = section.getBoundingClientRect().width + 'px';
+    wrapper.style.background = '#ffffff';
+
+    const titleClone = titleEl.cloneNode(true);
+    if (i > 0) {
+      const cont = document.createElement('span');
+      cont.style.fontSize = '9px';
+      cont.style.fontWeight = '400';
+      cont.style.marginLeft = '6px';
+      cont.style.textTransform = 'none';
+      cont.style.letterSpacing = 'normal';
+      cont.textContent = '(Fortsetzung)';
+      titleClone.appendChild(cont);
+    }
+    wrapper.appendChild(titleClone);
+
+    const bodyClone = document.createElement('div');
+    bodyClone.className = body.className;
+    bodyClone.setAttribute('style', body.getAttribute('style') || '');
+    chunks[i].forEach(child => bodyClone.appendChild(child.cloneNode(true)));
+    wrapper.appendChild(bodyClone);
+
+    document.body.appendChild(wrapper);
+    try {
+      canvases.push(await renderElementSafe(wrapper, baseScale));
+    } catch (chunkErr) {
+      // Granular fallback: if even this chunk fails, render each of its
+      // top-level children individually so we can isolate the exact element.
+      console.warn('Chunk render failed, falling back to per-element rendering:', chunkErr.message);
+      document.body.removeChild(wrapper);
+
+      for (let j = 0; j < chunks[i].length; j++) {
+        const elWrapper = document.createElement('div');
+        elWrapper.className = 'section';
+        elWrapper.style.position = 'fixed';
+        elWrapper.style.left = '-9999px';
+        elWrapper.style.top = '0';
+        elWrapper.style.width = section.getBoundingClientRect().width + 'px';
+        elWrapper.style.background = '#ffffff';
+
+        if (j === 0) {
+          const tClone = titleEl.cloneNode(true);
+          elWrapper.appendChild(tClone);
+        }
+
+        const elBody = document.createElement('div');
+        elBody.className = body.className;
+        elBody.setAttribute('style', body.getAttribute('style') || '');
+        elBody.appendChild(chunks[i][j].cloneNode(true));
+        elWrapper.appendChild(elBody);
+
+        document.body.appendChild(elWrapper);
+        try {
+          window.__pdfExportStep = (window.__pdfExportStep || '') + ' [Element ' + (j+1) + ': ' + (chunks[i][j].className || chunks[i][j].tagName) + ']';
+          canvases.push(await renderElementSafe(elWrapper, baseScale));
+        } finally {
+          document.body.removeChild(elWrapper);
+        }
+      }
+      continue;
+    }
+    document.body.removeChild(wrapper);
+  }
+
+  return canvases;
+}
+
+// Render Section 4 ("Maße") natively with jsPDF vector text/rects instead of
+// html2canvas (the auto-fill/minmax CSS grid there triggers IndexSizeError
+// on some mobile renderers). Returns the new cursorY position.
+function drawMassSectionNative(pdf, section, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap) {
+  const navy = [0, 27, 67];
+  const orange = [217, 94, 31];
+  const grey = [107, 122, 141];
+  const lightBg = [238, 242, 248];
+  const borderGrey = [210, 218, 227];
+
+  const titleEl = section.querySelector('.section-title');
+  const titleText = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : 'Maße';
+
+  const groups = Array.from(section.querySelectorAll('.mass-group'));
+  const rowH = 6;       // mm per data row
+  const groupTitleH = 6.5; // mm
+  const groupGapY = 4;  // mm between stacked groups
+  const padX = 3;
+
+  function ensureSpace(h) {
+    if (cursorY + h > bottomLimit) {
+      pdf.addPage();
+      cursorY = margin;
+    }
+  }
+
+  // Section title bar
+  const titleH = 8;
+  ensureSpace(titleH);
+  pdf.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  pdf.rect(margin, cursorY, contentW, titleH, 'F');
+  pdf.setDrawColor(navy[0], navy[1], navy[2]);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, cursorY + titleH, margin + contentW, cursorY + titleH);
+  // Number badge
+  pdf.setFillColor(orange[0], orange[1], orange[2]);
+  pdf.circle(margin + 4, cursorY + titleH / 2, 2.2, 'F');
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7);
+  pdf.text('4', margin + 4, cursorY + titleH / 2, { align: 'center', baseline: 'middle' });
+  // Title text
+  pdf.setTextColor(navy[0], navy[1], navy[2]);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+  pdf.text(titleText.toUpperCase(), margin + 9, cursorY + titleH / 2, { baseline: 'middle' });
+  cursorY += titleH + gap;
+
+  // Lay out groups in two columns
+  const colGap = 4;
+  const colW = (contentW - colGap) / 2;
+
+  for (let i = 0; i < groups.length; i += 2) {
+    const leftGroup = groups[i];
+    const rightGroup = groups[i + 1] || null;
+
+    const leftRows = Array.from(leftGroup.querySelectorAll('.mass-row'));
+    const rightRows = rightGroup ? Array.from(rightGroup.querySelectorAll('.mass-row')) : [];
+    const maxRows = Math.max(leftRows.length, rightRows.length);
+    const blockH = groupTitleH + maxRows * rowH + 2;
+
+    ensureSpace(blockH);
+
+    [{ el: leftGroup, rows: leftRows, x: margin },
+     { el: rightGroup, rows: rightRows, x: margin + colW + colGap }]
+    .forEach(col => {
+      if (!col.el) return;
+      const gTitle = (col.el.querySelector('.mass-group-title') || {}).textContent || '';
+
+      // group border
+      pdf.setDrawColor(borderGrey[0], borderGrey[1], borderGrey[2]);
+      pdf.setLineWidth(0.2);
+      pdf.rect(col.x, cursorY, colW, blockH, 'S');
+
+      // group title bar
+      pdf.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+      pdf.rect(col.x, cursorY, colW, groupTitleH, 'F');
+      pdf.setTextColor(grey[0], grey[1], grey[2]);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7);
+      pdf.text(gTitle.trim().toUpperCase(), col.x + padX, cursorY + groupTitleH / 2, { baseline: 'middle' });
+
+      // rows
+      col.rows.forEach((row, idx) => {
+        const rowY = cursorY + groupTitleH + idx * rowH;
+        if (idx % 2 === 1) {
+          pdf.setFillColor(248, 250, 251);
+          pdf.rect(col.x, rowY, colW, rowH, 'F');
+        }
+        const label = (row.querySelector('.mass-label') || {}).textContent || '';
+        const unit = (row.querySelector('.mass-unit') || {}).textContent || '';
+        const inputEl = row.querySelector('.mass-input');
+        const val = inputEl && inputEl.value ? inputEl.value : '—';
+
+        pdf.setTextColor(26, 45, 68);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.5);
+        pdf.text(label.replace(/\s+/g, ' ').trim(), col.x + padX, rowY + rowH / 2, { baseline: 'middle' });
+
+        pdf.setTextColor(orange[0], orange[1], orange[2]);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(8);
+        pdf.text(String(val), col.x + colW - padX - 8, rowY + rowH / 2, { baseline: 'middle', align: 'right' });
+
+        pdf.setTextColor(grey[0], grey[1], grey[2]);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6.5);
+        pdf.text(unit.trim(), col.x + colW - padX, rowY + rowH / 2, { baseline: 'middle', align: 'right' });
+
+        // row separator
+        if (idx < col.rows.length - 1) {
+          pdf.setDrawColor(borderGrey[0], borderGrey[1], borderGrey[2]);
+          pdf.setLineWidth(0.1);
+          pdf.line(col.x, rowY + rowH, col.x + colW, rowY + rowH);
+        }
+      });
+    });
+
+    cursorY += blockH + groupGapY;
+  }
+
+  return cursorY + gap;
+}
+
+// Generic native renderer for sections built from .field-row / .check-group /
+// .divider elements (e.g. Section 5 "Beschläge"). Avoids html2canvas entirely
+// for these sections, since certain combinations of custom radio/checkbox
+// styling and CSS grid (.field-row.double) have been observed to trigger
+// "IndexSizeError" on iOS Safari regardless of canvas size.
+function drawFieldRowSectionNative(pdf, section, sectionNumber, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap) {
+  const navy = [0, 27, 67];
+  const orange = [217, 94, 31];
+  const grey = [107, 122, 141];
+  const darkText = [26, 45, 68];
+  const lightBg = [238, 242, 248];
+  const borderGrey = [210, 218, 227];
+
+  const titleEl = section.querySelector('.section-title');
+  let titleText = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : '';
+  // Strip leading number (already drawn separately as a badge)
+  titleText = titleText.replace(/^\d+\s*/, '');
+
+  const padX = 3;
+  const lineH = 5.2; // mm per text line
+
+  function ensureSpace(h) {
+    if (cursorY + h > bottomLimit) {
+      pdf.addPage();
+      cursorY = margin;
+    }
+  }
+
+  // Section title bar
+  const titleH = 8;
+  ensureSpace(titleH);
+  pdf.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  pdf.rect(margin, cursorY, contentW, titleH, 'F');
+  pdf.setDrawColor(navy[0], navy[1], navy[2]);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, cursorY + titleH, margin + contentW, cursorY + titleH);
+  pdf.setFillColor(orange[0], orange[1], orange[2]);
+  pdf.circle(margin + 4, cursorY + titleH / 2, 2.2, 'F');
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7);
+  pdf.text(String(sectionNumber), margin + 4, cursorY + titleH / 2, { align: 'center', baseline: 'middle' });
+  pdf.setTextColor(navy[0], navy[1], navy[2]);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+  pdf.text(titleText.toUpperCase(), margin + 9, cursorY + titleH / 2, { baseline: 'middle' });
+  cursorY += titleH + gap;
+
+  const body = section.querySelector('.section-body');
+  const children = Array.from(body.children);
+
+  for (const child of children) {
+    if (child.classList.contains('divider')) {
+      ensureSpace(3);
+      pdf.setDrawColor(borderGrey[0], borderGrey[1], borderGrey[2]);
+      pdf.setLineWidth(0.2);
+      pdf.line(margin, cursorY + 1.5, margin + contentW, cursorY + 1.5);
+      cursorY += 3;
+      continue;
+    }
+
+    if (!child.classList.contains('field-row')) continue;
+
+    const isDouble = child.classList.contains('double');
+    const allSpans = Array.from(child.children);
+
+    if (isDouble) {
+      // Two label/value pairs side by side
+      const pairs = [];
+      for (let i = 0; i < allSpans.length; i += 2) {
+        const label = allSpans[i];
+        const valueEl = allSpans[i + 1];
+        if (!label || !valueEl) continue;
+        const labelText = label.textContent.replace(/\s+/g, ' ').trim();
+        const val = (valueEl.tagName === 'INPUT' && valueEl.value) ? valueEl.value : '—';
+        const unit = valueEl.tagName === 'INPUT' ? 'mm' : '';
+        pairs.push({ labelText, val, unit });
+      }
+      const rowH = lineH + 3;
+      ensureSpace(rowH);
+      const halfW = contentW / 2;
+      pairs.forEach((p, idx) => {
+        const x = margin + idx * halfW;
+        pdf.setTextColor(grey[0], grey[1], grey[2]);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7);
+        pdf.text(p.labelText.toUpperCase(), x + padX, cursorY + 3.2);
+        pdf.setTextColor(orange[0], orange[1], orange[2]);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        pdf.text(String(p.val) + (p.unit ? ' ' + p.unit : ''), x + padX, cursorY + 8.2);
+      });
+      cursorY += rowH + 2;
+      continue;
+    }
+
+    const labelEl = child.querySelector('.field-label');
+    const labelText = labelEl ? labelEl.textContent.replace(/\s+/g, ' ').trim() : '';
+
+    const checkGroup = child.querySelector('.check-group');
+    const inputEl = child.querySelector('input.field-input, textarea.field-input');
+
+    if (checkGroup) {
+      // Render label, then selected option(s) as text
+      const options = Array.from(checkGroup.querySelectorAll('.check-item'));
+      const selected = options.filter(o => o.querySelector('input').checked)
+                               .map(o => o.textContent.replace(/\s+/g, ' ').trim());
+      const allOptions = options.map(o => o.textContent.replace(/\s+/g, ' ').trim());
+
+      const rowH = lineH * 2 + 2;
+      ensureSpace(rowH);
+
+      pdf.setTextColor(grey[0], grey[1], grey[2]);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7);
+      pdf.text(labelText.toUpperCase(), margin + padX, cursorY + 3.2);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+      if (selected.length > 0) {
+        pdf.setTextColor(orange[0], orange[1], orange[2]);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('✓ ' + selected.join(', '), margin + padX, cursorY + 8.4);
+      } else {
+        pdf.setTextColor(180, 175, 168);
+        const optionsLine = allOptions.join('  ·  ');
+        const wrapped = pdf.splitTextToSize(optionsLine, contentW - padX * 2);
+        pdf.text(wrapped[0] || '', margin + padX, cursorY + 8.4);
+      }
+      cursorY += rowH;
+      continue;
+    }
+
+    if (inputEl) {
+      const rowH = lineH * 2 + 2;
+      ensureSpace(rowH);
+      pdf.setTextColor(grey[0], grey[1], grey[2]);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7);
+      pdf.text(labelText.toUpperCase(), margin + padX, cursorY + 3.2);
+
+      const val = inputEl.value ? inputEl.value : '—';
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(darkText[0], darkText[1], darkText[2]);
+      pdf.text(String(val), margin + padX, cursorY + 8.4);
+
+      // underline
+      pdf.setDrawColor(borderGrey[0], borderGrey[1], borderGrey[2]);
+      pdf.setLineWidth(0.2);
+      pdf.line(margin + padX, cursorY + 9.5, margin + contentW - padX, cursorY + 9.5);
+      cursorY += rowH;
+      continue;
+    }
+  }
+
+  return cursorY + gap;
+}
+
+// Render Section 6 ("Skizze & Maßeintragung") natively, bypassing
+// html2canvas entirely. This section's inline <svg> (using
+// stroke="currentColor") and the hidden <input type="file"> have been
+// observed to trigger IndexSizeError in html2canvas on iOS Safari, even
+// after removing the repeating-gradient background and at reduced scale.
+// If the user has drawn/uploaded a sketch image, it is embedded directly
+// from its image source (no DOM screenshot needed). Otherwise a simple
+// placeholder box is drawn.
+async function drawSketchSectionNative(pdf, section, sectionNumber, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap) {
+  const navy = [0, 27, 67];
+  const orange = [217, 94, 31];
+  const grey = [107, 122, 141];
+  const lightBg = [238, 242, 248];
+  const borderGrey = [210, 218, 227];
+
+  const titleEl = section.querySelector('.section-title');
+  let titleText = titleEl ? titleEl.textContent.replace(/\s+/g, ' ').trim() : '';
+  titleText = titleText.replace(/^\d+\s*/, '');
+
+  function ensureSpace(h) {
+    if (cursorY + h > bottomLimit) {
+      pdf.addPage();
+      cursorY = margin;
+    }
+  }
+
+  // Section title bar
+  const titleH = 8;
+  ensureSpace(titleH);
+  pdf.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  pdf.rect(margin, cursorY, contentW, titleH, 'F');
+  pdf.setDrawColor(navy[0], navy[1], navy[2]);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, cursorY + titleH, margin + contentW, cursorY + titleH);
+  pdf.setFillColor(orange[0], orange[1], orange[2]);
+  pdf.circle(margin + 4, cursorY + titleH / 2, 2.2, 'F');
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7);
+  pdf.text(String(sectionNumber), margin + 4, cursorY + titleH / 2, { align: 'center', baseline: 'middle' });
+  pdf.setTextColor(navy[0], navy[1], navy[2]);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(9);
+  pdf.text(titleText.toUpperCase(), margin + 9, cursorY + titleH / 2, { baseline: 'middle' });
+  cursorY += titleH + gap;
+
+  const sketchArea = section.querySelector('.sketch-area');
+  const bgImage = sketchArea ? sketchArea.style.backgroundImage : '';
+  const urlMatch = bgImage && bgImage.match(/url\((['"]?)(.*?)\1\)/);
+  const imgSrc = urlMatch ? urlMatch[2] : null;
+
+  const boxH = 70; // mm, fixed placeholder/image height
+  ensureSpace(boxH);
+
+  if (imgSrc) {
+    // Load the image to get its natural dimensions, then draw it into the box
+    try {
+      const dims = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = reject;
+        img.src = imgSrc;
+      });
+      const boxW = contentW;
+      const imgRatio = dims.w / dims.h;
+      const boxRatio = boxW / boxH;
+      let drawW, drawH;
+      if (imgRatio > boxRatio) {
+        drawW = boxW;
+        drawH = boxW / imgRatio;
+      } else {
+        drawH = boxH;
+        drawW = boxH * imgRatio;
+      }
+      const offsetX = margin + (boxW - drawW) / 2;
+      const offsetY = cursorY + (boxH - drawH) / 2;
+
+      // Border around the full box
+      pdf.setDrawColor(borderGrey[0], borderGrey[1], borderGrey[2]);
+      pdf.setLineWidth(0.3);
+      pdf.rect(margin, cursorY, boxW, boxH, 'S');
+
+      const fmt = imgSrc.includes('image/png') ? 'PNG' : 'JPEG';
+      pdf.addImage(imgSrc, fmt, offsetX, offsetY, drawW, drawH);
+    } catch (e) {
+      // Fall back to placeholder if image couldn't be loaded
+      drawSketchPlaceholder(pdf, margin, cursorY, contentW, boxH, borderGrey, grey);
+    }
+  } else {
+    drawSketchPlaceholder(pdf, margin, cursorY, contentW, boxH, borderGrey, grey);
+  }
+
+  cursorY += boxH + gap;
+  return cursorY;
+}
+
+function drawSketchPlaceholder(pdf, x, y, w, h, borderGrey, grey) {
+  pdf.setDrawColor(borderGrey[0], borderGrey[1], borderGrey[2]);
+  pdf.setLineWidth(0.3);
+  pdf.setLineDashPattern([1.5, 1.5], 0);
+  pdf.rect(x, y, w, h, 'S');
+  pdf.setLineDashPattern([], 0);
+
+  pdf.setTextColor(grey[0], grey[1], grey[2]);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9);
+  pdf.text('Freihand-Zeichenfläche (keine Skizze hinzugefügt)', x + w / 2, y + h / 2, { align: 'center', baseline: 'middle' });
 }
 
 async function exportPDF() {
@@ -975,10 +1558,48 @@ async function exportPDF() {
   // Hide action buttons during capture
   document.querySelector('.actions').style.display = 'none';
 
-  // Small delay so overlay paints before heavy capture work
-  await new Promise(r => setTimeout(r, 50));
+  // Simplify CSS grid layouts that html2canvas struggles with
+  // (e.g. repeat(auto-fill, minmax(...)) can trigger IndexSizeError)
+  document.body.classList.add('pdf-export-mode');
+
+  // The .sketch-area uses two overlapping repeating-linear-gradient()
+  // layers (24px graph-paper pattern) as its background. Small-tile CSS
+  // gradient patterns have been observed to trigger IndexSizeError in
+  // html2canvas on iOS Safari. Temporarily override with a plain
+  // background via inline style (higher specificity than the class rule,
+  // no !important needed, so a user-added sketch image - also set via
+  // inline style - is preserved/restored correctly).
+  const sketchArea = document.getElementById('sketchArea');
+  let sketchAreaPrevStyle = null;
+  if (sketchArea) {
+    // Save all background-related inline styles (the shorthand 'background'
+    // assignment below would otherwise wipe out a user-uploaded sketch
+    // image, which is set via backgroundImage/backgroundSize/etc.)
+    sketchAreaPrevStyle = {
+      background: sketchArea.style.background || '',
+      backgroundImage: sketchArea.style.backgroundImage || '',
+      backgroundSize: sketchArea.style.backgroundSize || '',
+      backgroundRepeat: sketchArea.style.backgroundRepeat || '',
+      backgroundPosition: sketchArea.style.backgroundPosition || ''
+    };
+    // Replace with a plain background (drops the repeating-linear-gradient
+    // graph-paper pattern from the CSS class). Setting the 'background'
+    // shorthand also clears backgroundImage, so re-apply the user's sketch
+    // image (if any) afterwards - only the gradient pattern is removed.
+    sketchArea.style.background = '#FAFAF8';
+    if (sketchAreaPrevStyle.backgroundImage) {
+      sketchArea.style.backgroundImage = sketchAreaPrevStyle.backgroundImage;
+      sketchArea.style.backgroundSize = sketchAreaPrevStyle.backgroundSize;
+      sketchArea.style.backgroundRepeat = sketchAreaPrevStyle.backgroundRepeat;
+      sketchArea.style.backgroundPosition = sketchAreaPrevStyle.backgroundPosition;
+    }
+  }
+
+  // Small delay so overlay paints and layout reflows before heavy capture work
+  await new Promise(r => setTimeout(r, 100));
 
   try {
+    window.__pdfExportStep = 'Initialisierung';
     const header = document.querySelector('.doc-header');
     const sections = Array.from(document.querySelectorAll('#main-form .section'));
     const footerEl = document.querySelector('.doc-footer');
@@ -993,41 +1614,40 @@ async function exportPDF() {
     const gap = 3; // mm between blocks
 
     // Render header first (always on page 1)
+    window.__pdfExportStep = 'Header rendern';
     const canvasHeader = await renderElementSafe(header, 2);
     const headerH = Math.min((canvasHeader.height / canvasHeader.width) * contentW, 30);
-    pdf.addImage(canvasHeader.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, contentW, headerH);
+    pdf.addImage(toDataURLAndFree(canvasHeader, 'image/jpeg', 0.95), 'JPEG', margin, margin, contentW, headerH);
 
     let cursorY = margin + headerH + gap;
     const bottomLimit = pageH - margin;
 
-    // Render each section individually and flow them across pages.
-    // This avoids ever creating one giant canvas (iOS canvas size limit).
-    for (const section of sections) {
-      const canvas = await renderElementSafe(section, 2);
+    // Places a single rendered canvas block into the PDF, handling page
+    // breaks and slicing if the block itself is taller than one page.
+    // Frees the canvas's backing memory once it is no longer needed.
+    function placeCanvasBlock(canvas) {
       const blockH = (canvas.height / canvas.width) * contentW;
 
       if (blockH <= (bottomLimit - cursorY)) {
-        // Fits on current page
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentW, blockH);
+        pdf.addImage(toDataURLAndFree(canvas, 'image/jpeg', 0.92), 'JPEG', margin, cursorY, contentW, blockH);
         cursorY += blockH + gap;
       } else if (blockH <= (pageH - margin * 2)) {
-        // Doesn't fit here, but fits on a fresh page
         pdf.addPage();
         cursorY = margin;
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentW, blockH);
+        pdf.addImage(toDataURLAndFree(canvas, 'image/jpeg', 0.92), 'JPEG', margin, cursorY, contentW, blockH);
         cursorY += blockH + gap;
       } else {
-        // Section itself is taller than one page (e.g. many photos):
-        // slice this single section's canvas across multiple pages.
+        // Block itself is taller than one page: slice across multiple pages.
         const pxPerMm = canvas.width / contentW;
+        const totalH = canvas.height;
         let yPx = 0;
         let firstSlice = true;
         let safety = 0;
-        while (yPx < canvas.height && safety < 50) {
+        while (yPx < totalH && safety < 50) {
           safety++;
           const availMm = firstSlice ? (bottomLimit - cursorY) : (pageH - margin * 2);
           const maxSlicePx = Math.floor(availMm * pxPerMm);
-          const remainingPx = Math.floor(canvas.height - yPx);
+          const remainingPx = Math.floor(totalH - yPx);
           const sliceHpx = Math.max(1, Math.min(maxSlicePx, remainingPx));
           if (sliceHpx <= 0 || remainingPx <= 0) break;
 
@@ -1038,7 +1658,7 @@ async function exportPDF() {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
           ctx.drawImage(canvas, 0, -yPx);
-          const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+          const sliceData = toDataURLAndFree(sliceCanvas, 'image/jpeg', 0.92);
           const sliceHmm = sliceHpx / pxPerMm;
 
           if (!firstSlice) { pdf.addPage(); cursorY = margin; }
@@ -1048,7 +1668,70 @@ async function exportPDF() {
           firstSlice = false;
         }
         cursorY += gap;
+        // Free the original (large) canvas after all slices are done
+        canvas.width = 0;
+        canvas.height = 0;
       }
+    }
+
+    // Render each section individually and flow them across pages.
+    // This avoids ever creating one giant canvas (iOS canvas size limit).
+    for (const section of sections) {
+      window.__pdfExportStep = 'Sektion rendern (' + (section.querySelector('.section-title') ? section.querySelector('.section-title').textContent.trim() : '?') + ')';
+
+      // Section 4 ("Maße") uses an auto-fill/minmax CSS grid that html2canvas
+      // cannot reliably rasterize on some mobile renderers (IndexSizeError).
+      // Render this section natively as a vector table instead of a screenshot.
+      if (section.querySelector('.mass-grid')) {
+        cursorY = drawMassSectionNative(pdf, section, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap);
+        continue;
+      }
+
+      // Section 5 ("Beschläge") combines many .check-group radio sets with a
+      // .field-row.double grid; this specific combination has been observed
+      // to trigger IndexSizeError in html2canvas on iOS Safari regardless of
+      // canvas size. Render it natively as vector text instead.
+      const sectionNumEl = section.querySelector('.section-title .num');
+      const sectionNum = sectionNumEl ? sectionNumEl.textContent.trim() : '';
+      if (sectionNum === '5') {
+        cursorY = drawFieldRowSectionNative(pdf, section, sectionNum, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap);
+        continue;
+      }
+
+      // Section 6 ("Skizze & Maßeintragung") contains an inline <svg> with
+      // stroke="currentColor" and a hidden <input type="file">, both of
+      // which have been observed to trigger IndexSizeError in html2canvas
+      // on iOS Safari even after removing the gradient background and at
+      // reduced scale. Render it natively instead (embeds the user's sketch
+      // image directly if present, or draws a placeholder box).
+      if (sectionNum === '6') {
+        cursorY = await drawSketchSectionNative(pdf, section, sectionNum, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap);
+        continue;
+      }
+
+      // Long sections are split into smaller chunks before rendering, since
+      // very tall canvases can trigger IndexSizeError on some mobile
+      // renderers even when within the per-side MAX_DIM limit.
+      // If rendering still fails (e.g. due to accumulated iOS canvas memory
+      // pressure from earlier sections), retry once at a lower resolution,
+      // which uses a quarter of the pixel memory.
+      let canvasChunks;
+      try {
+        canvasChunks = await renderSectionChunks(section, 2);
+      } catch (renderErr) {
+        console.warn('Section render failed at scale 2, retrying at scale 1:', renderErr.message);
+        await new Promise(r => setTimeout(r, 100));
+        canvasChunks = await renderSectionChunks(section, 1);
+      }
+      for (const canvas of canvasChunks) {
+        placeCanvasBlock(canvas);
+      }
+
+      // Brief pause between sections to allow iOS Safari to reclaim canvas
+      // memory from the previous html2canvas call before the next one.
+      // Repeated html2canvas calls without this can accumulate memory
+      // pressure and trigger IndexSizeError on a later, unrelated section.
+      await new Promise(r => setTimeout(r, 30));
 
       // Start a new page if we're essentially at the bottom
       if (cursorY > bottomLimit - 5 && section !== sections[sections.length - 1]) {
@@ -1058,8 +1741,10 @@ async function exportPDF() {
     }
 
     // ── WATERMARK + FOOTER on every page ──
+    window.__pdfExportStep = 'Wasserzeichen erstellen';
     const watermarkTile = buildWatermarkTile();
     const totalPages = pdf.internal.getNumberOfPages();
+    window.__pdfExportStep = 'Wasserzeichen einfügen';
     for (let p = 1; p <= totalPages; p++) {
       pdf.setPage(p);
       drawWatermarkAndFooter(pdf, pageW, pageH, margin, watermarkTile, p, totalPages);
@@ -1069,12 +1754,44 @@ async function exportPDF() {
     const projektEl = document.getElementById('field-projekt');
     const projekt = (projektEl && projektEl.value.trim().replace(/[^a-zA-Z0-9äöüÄÖÜß\-_]/g, '_').substring(0, 30)) || 'Aufmass';
     const dateFile = new Date().toISOString().slice(0,10);
+    window.__pdfExportStep = 'PDF speichern';
     pdf.save(`Tuerblatt_${projekt}_${dateFile}.pdf`);
 
   } catch(e) {
-    alert('PDF-Export fehlgeschlagen: ' + (e && e.message ? e.message : e));
-    console.error(e);
+    const step = window.__pdfExportStep || 'unbekannt';
+    alert('PDF-Export fehlgeschlagen (' + step + '): ' + (e && e.message ? e.message : e));
+    console.error('PDF export error at step:', step, e);
   } finally {
+    document.body.classList.remove('pdf-export-mode');
+    // Restore the sketch-area's original background (graph-paper gradient
+    // and/or user sketch image)
+    if (sketchArea && sketchAreaPrevStyle) {
+      // Clear the shorthand first (removeProperty('background') also wipes
+      // any longhand background-* properties), then re-apply the saved
+      // longhands so order doesn't matter.
+      sketchArea.style.removeProperty('background');
+      sketchArea.style.removeProperty('background-image');
+      sketchArea.style.removeProperty('background-size');
+      sketchArea.style.removeProperty('background-repeat');
+      sketchArea.style.removeProperty('background-position');
+      sketchArea.style.removeProperty('background-color');
+
+      if (sketchAreaPrevStyle.background) {
+        sketchArea.style.background = sketchAreaPrevStyle.background;
+      }
+      if (sketchAreaPrevStyle.backgroundImage) {
+        sketchArea.style.backgroundImage = sketchAreaPrevStyle.backgroundImage;
+      }
+      if (sketchAreaPrevStyle.backgroundSize) {
+        sketchArea.style.backgroundSize = sketchAreaPrevStyle.backgroundSize;
+      }
+      if (sketchAreaPrevStyle.backgroundRepeat) {
+        sketchArea.style.backgroundRepeat = sketchAreaPrevStyle.backgroundRepeat;
+      }
+      if (sketchAreaPrevStyle.backgroundPosition) {
+        sketchArea.style.backgroundPosition = sketchAreaPrevStyle.backgroundPosition;
+      }
+    }
     document.querySelector('.actions').style.display = 'flex';
     overlay.classList.remove('active');
   }
