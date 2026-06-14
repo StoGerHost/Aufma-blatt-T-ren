@@ -91,7 +91,7 @@
   .field-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.03em; text-transform: uppercase; }
   .field-input {
     background: var(--field-bg); border: 1.5px solid var(--border); border-radius: 8px;
-    padding: 5px 10px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px;
+    padding: 5px 10px; font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 13px;
     color: var(--text); width: 100%; transition: border-color 0.15s;
   }
   .field-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(26,74,107,0.12); }
@@ -110,7 +110,7 @@
   .gps-btn:hover { background: #091636; }
   .gps-btn:disabled { background: var(--border-strong); cursor: not-allowed; }
   .gps-status { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .gps-coords { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--accent); }
+  .gps-coords { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; color: var(--accent); }
 
   /* CHECKBOXES */
   .check-group { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
@@ -138,14 +138,14 @@
   .mass-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0; }
   .mass-group { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin: 6px; }
   .mass-group-title { background: #EEF2F8; padding: 5px 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-bottom: 1px solid var(--border); }
-  .mass-row { display: grid; grid-template-columns: 1fr 90px 32px; align-items: center; padding: 4px 10px; border-bottom: 1px solid #F0EDE8; }
+  .mass-row { display: grid; grid-template-columns: 1fr 90px 32px; align-items: center; padding: 4px 10px; border-bottom: 1px solid var(--border); }
   .mass-row:last-child { border-bottom: none; }
   .mass-row:nth-child(even) { background: var(--field-bg); }
   .mass-label { font-size: 11px; color: var(--text); }
   .mass-abbr { font-size: 10px; color: var(--muted); }
   .mass-input {
     background: none; border: none; border-bottom: 1.5px solid var(--border);
-    padding: 2px 4px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+    padding: 2px 4px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px;
     font-weight: 500; color: var(--orange); text-align: right; width: 80px; transition: border-color 0.15s;
   }
   .mass-input:focus { outline: none; border-bottom-color: var(--orange); }
@@ -211,7 +211,7 @@
   .actions { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 8px; z-index: 100; }
   .btn {
     padding: 10px 18px; border-radius: 5px; border: none;
-    font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500;
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: 500;
     cursor: pointer; display: flex; align-items: center; gap: 6px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.15); transition: transform 0.1s, box-shadow 0.1s;
   }
@@ -505,7 +505,7 @@
           <div class="din-svg-wrap">
             <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DIN Links Schemazeichnung">
               <!-- Wandöffnung -->
-              <rect x="10" y="10" width="140" height="180" rx="2" fill="#F0EDE8" stroke="#C8C4BB" stroke-width="1.5"/>
+              <rect x="10" y="10" width="140" height="180" rx="2" fill="#EEF2F8" stroke="#D2DAE3" stroke-width="1.5"/>
               <!-- Türblatt -->
               <rect x="24" y="18" width="90" height="164" rx="2" fill="#DDEAF3" stroke="#001B43" stroke-width="2"/>
               <!-- Türblatt Schraffur oben/unten (Orientierung) -->
@@ -534,11 +534,11 @@
                 </marker>
               </defs>
               <!-- Label Band -->
-              <text x="6" y="8" font-family="IBM Plex Sans, sans-serif" font-size="8" fill="#6B6863" font-weight="600">BAND</text>
+              <text x="6" y="8" font-family="-apple-system, sans-serif" font-size="8" fill="#6B7A8D" font-weight="600">BAND</text>
               <!-- Label Griff -->
-              <text x="118" y="108" font-family="IBM Plex Sans, sans-serif" font-size="8" fill="#001B43">Griff</text>
+              <text x="118" y="108" font-family="-apple-system, sans-serif" font-size="8" fill="#001B43">Griff</text>
               <!-- Label Öffnung -->
-              <text x="130" y="55" font-family="IBM Plex Sans, sans-serif" font-size="7.5" fill="#001B43" opacity="0.7">öffnet</text>
+              <text x="130" y="55" font-family="-apple-system, sans-serif" font-size="7.5" fill="#001B43" opacity="0.7">öffnet</text>
             </svg>
           </div>
           <div class="din-caption">
@@ -556,7 +556,7 @@
           <div class="din-svg-wrap">
             <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DIN Rechts Schemazeichnung">
               <!-- Wandöffnung -->
-              <rect x="10" y="10" width="140" height="180" rx="2" fill="#F0EDE8" stroke="#C8C4BB" stroke-width="1.5"/>
+              <rect x="10" y="10" width="140" height="180" rx="2" fill="#EEF2F8" stroke="#D2DAE3" stroke-width="1.5"/>
               <!-- Türblatt -->
               <rect x="46" y="18" width="90" height="164" rx="2" fill="#DDEAF3" stroke="#001B43" stroke-width="2"/>
               <rect x="46" y="18" width="90" height="8" fill="#001B43" opacity="0.12"/>
@@ -584,11 +584,11 @@
                 </marker>
               </defs>
               <!-- Label Band -->
-              <text x="133" y="8" font-family="IBM Plex Sans, sans-serif" font-size="8" fill="#6B6863" font-weight="600">BAND</text>
+              <text x="133" y="8" font-family="-apple-system, sans-serif" font-size="8" fill="#6B7A8D" font-weight="600">BAND</text>
               <!-- Label Griff -->
-              <text x="22" y="108" font-family="IBM Plex Sans, sans-serif" font-size="8" fill="#001B43">Griff</text>
+              <text x="22" y="108" font-family="-apple-system, sans-serif" font-size="8" fill="#001B43">Griff</text>
               <!-- Label Öffnung -->
-              <text x="8" y="55" font-family="IBM Plex Sans, sans-serif" font-size="7.5" fill="#001B43" opacity="0.7">öffnet</text>
+              <text x="8" y="55" font-family="-apple-system, sans-serif" font-size="7.5" fill="#001B43" opacity="0.7">öffnet</text>
             </svg>
           </div>
           <div class="din-caption">
@@ -917,7 +917,7 @@ function getGPS() {
   );
 }
 
-// ── PDF EXPORT MIT WASSERZEICHEN ──────────────────────
+// ── PDF EXPORT MIT WASSERZEICHEN (Mehrseiten, sektionsweise) ──
 // Build a watermark tile as an image (rotated via canvas, not jsPDF text-angle)
 function buildWatermarkTile() {
   const c = document.createElement('canvas');
@@ -937,6 +937,37 @@ function buildWatermarkTile() {
   return c.toDataURL('image/png');
 }
 
+function drawWatermarkAndFooter(pdf, pageW, pageH, margin, watermarkTile, pageNum, totalPages) {
+  const tileSizeMm = 90;
+  for (let x = -tileSizeMm / 2; x < pageW + tileSizeMm; x += tileSizeMm) {
+    for (let y = -tileSizeMm / 2; y < pageH + tileSizeMm; y += tileSizeMm) {
+      pdf.addImage(watermarkTile, 'PNG', x, y, tileSizeMm, tileSizeMm);
+    }
+  }
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.setTextColor(150, 145, 138);
+  const dateStr = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+  pdf.text(`Türblatt Aufmaß · Aufnahmeprotokoll · ${dateStr}`, margin, pageH - 5);
+  pdf.text(`Seite ${pageNum} / ${totalPages}`, pageW - margin, pageH - 5, { align: 'right' });
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(180, 175, 168);
+  pdf.text('Created by M.G.', pageW / 2, pageH - 5, { align: 'center' });
+}
+
+// Render a single DOM element to canvas with a safe scale (avoids iOS canvas
+// area limits which trigger "IndexSizeError: The index is not in the allowed range")
+async function renderElementSafe(el, baseScale) {
+  const rect = el.getBoundingClientRect();
+  const MAX_DIM = 3500; // safe px ceiling per side for iOS Safari canvases
+  let scale = baseScale;
+  const longSide = Math.max(rect.width, rect.height);
+  if (longSide * scale > MAX_DIM) {
+    scale = Math.max(1, (MAX_DIM / longSide));
+  }
+  return html2canvas(el, { scale: scale, useCORS: true, backgroundColor: '#ffffff' });
+}
+
 async function exportPDF() {
   const overlay = document.getElementById('export-overlay');
   overlay.classList.add('active');
@@ -948,22 +979,9 @@ async function exportPDF() {
   await new Promise(r => setTimeout(r, 50));
 
   try {
-    const form = document.getElementById('main-form');
     const header = document.querySelector('.doc-header');
-
-    // iOS Safari has a canvas area limit (~16.7 million px / ~4096px per side
-    // depending on device). Cap the render scale based on element size.
-    const formRect = form.getBoundingClientRect();
-    const MAX_DIM = 4000; // safe px ceiling for a single canvas dimension
-    let scale = 2;
-    if (formRect.height * scale > MAX_DIM) {
-      scale = Math.max(1, Math.floor((MAX_DIM / formRect.height) * 10) / 10);
-    }
-
-    // Capture header
-    const canvasHeader = await html2canvas(header, { scale: scale, useCORS: true, backgroundColor: '#ffffff' });
-    // Capture form body
-    const canvasForm = await html2canvas(form, { scale: scale, useCORS: true, backgroundColor: '#ffffff' });
+    const sections = Array.from(document.querySelectorAll('#main-form .section'));
+    const footerEl = document.querySelector('.doc-footer');
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -972,75 +990,79 @@ async function exportPDF() {
     const pageH = 297;
     const margin = 10;
     const contentW = pageW - margin * 2;
+    const gap = 3; // mm between blocks
 
-    // Add header image
-    const headerH = (canvasHeader.height / canvasHeader.width) * contentW;
-    pdf.addImage(canvasHeader.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, contentW, Math.min(headerH, 30));
+    // Render header first (always on page 1)
+    const canvasHeader = await renderElementSafe(header, 2);
+    const headerH = Math.min((canvasHeader.height / canvasHeader.width) * contentW, 30);
+    pdf.addImage(canvasHeader.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, contentW, headerH);
 
-    // Add form body – paginate if needed
-    const totalFormH = (canvasForm.height / canvasForm.width) * contentW;
-    const startY = margin + Math.min(headerH, 30) + 3;
-    const availH = pageH - startY - margin;
+    let cursorY = margin + headerH + gap;
+    const bottomLimit = pageH - margin;
 
-    if (totalFormH <= availH) {
-      const formData = canvasForm.toDataURL('image/jpeg', 0.92);
-      pdf.addImage(formData, 'JPEG', margin, startY, contentW, totalFormH);
-    } else {
-      // Multi-page: slice canvas into pages safely
-      const pxPerMm = canvasForm.width / contentW;
-      let yPx = 0;
-      let firstPage = true;
-      let safety = 0;
-      while (yPx < canvasForm.height && safety < 50) {
-        safety++;
-        const sliceAvailH = firstPage ? availH : (pageH - margin * 2);
-        const maxSliceHpx = Math.floor(sliceAvailH * pxPerMm);
-        const remainingPx = Math.floor(canvasForm.height - yPx);
-        const sliceHpx = Math.max(1, Math.min(maxSliceHpx, remainingPx));
-        if (sliceHpx <= 0 || remainingPx <= 0) break;
+    // Render each section individually and flow them across pages.
+    // This avoids ever creating one giant canvas (iOS canvas size limit).
+    for (const section of sections) {
+      const canvas = await renderElementSafe(section, 2);
+      const blockH = (canvas.height / canvas.width) * contentW;
 
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvasForm.width;
-        sliceCanvas.height = sliceHpx;
-        const ctx = sliceCanvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-        ctx.drawImage(canvasForm, 0, -yPx);
-        const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.92);
-        const sliceHmm = sliceHpx / pxPerMm;
-        if (!firstPage) { pdf.addPage(); }
-        const yPos = firstPage ? startY : margin;
-        pdf.addImage(sliceData, 'JPEG', margin, yPos, contentW, sliceHmm);
-        yPx += sliceHpx;
-        firstPage = false;
+      if (blockH <= (bottomLimit - cursorY)) {
+        // Fits on current page
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentW, blockH);
+        cursorY += blockH + gap;
+      } else if (blockH <= (pageH - margin * 2)) {
+        // Doesn't fit here, but fits on a fresh page
+        pdf.addPage();
+        cursorY = margin;
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', margin, cursorY, contentW, blockH);
+        cursorY += blockH + gap;
+      } else {
+        // Section itself is taller than one page (e.g. many photos):
+        // slice this single section's canvas across multiple pages.
+        const pxPerMm = canvas.width / contentW;
+        let yPx = 0;
+        let firstSlice = true;
+        let safety = 0;
+        while (yPx < canvas.height && safety < 50) {
+          safety++;
+          const availMm = firstSlice ? (bottomLimit - cursorY) : (pageH - margin * 2);
+          const maxSlicePx = Math.floor(availMm * pxPerMm);
+          const remainingPx = Math.floor(canvas.height - yPx);
+          const sliceHpx = Math.max(1, Math.min(maxSlicePx, remainingPx));
+          if (sliceHpx <= 0 || remainingPx <= 0) break;
+
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sliceHpx;
+          const ctx = sliceCanvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          ctx.drawImage(canvas, 0, -yPx);
+          const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+          const sliceHmm = sliceHpx / pxPerMm;
+
+          if (!firstSlice) { pdf.addPage(); cursorY = margin; }
+          pdf.addImage(sliceData, 'JPEG', margin, cursorY, contentW, sliceHmm);
+          cursorY += sliceHmm;
+          yPx += sliceHpx;
+          firstSlice = false;
+        }
+        cursorY += gap;
+      }
+
+      // Start a new page if we're essentially at the bottom
+      if (cursorY > bottomLimit - 5 && section !== sections[sections.length - 1]) {
+        pdf.addPage();
+        cursorY = margin;
       }
     }
 
-    // ── WATERMARK on every page (image-based, no text rotation) ──
+    // ── WATERMARK + FOOTER on every page ──
     const watermarkTile = buildWatermarkTile();
     const totalPages = pdf.internal.getNumberOfPages();
-    const tileSizeMm = 90;
-
     for (let p = 1; p <= totalPages; p++) {
       pdf.setPage(p);
-
-      // Tile the rotated watermark image across the page
-      for (let x = -tileSizeMm / 2; x < pageW + tileSizeMm; x += tileSizeMm) {
-        for (let y = -tileSizeMm / 2; y < pageH + tileSizeMm; y += tileSizeMm) {
-          pdf.addImage(watermarkTile, 'PNG', x, y, tileSizeMm, tileSizeMm);
-        }
-      }
-
-      // Footer on every page
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-      pdf.setTextColor(150, 145, 138);
-      const dateStr = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
-      pdf.text(`Türblatt Aufmaß · Aufnahmeprotokoll · ${dateStr}`, margin, pageH - 5);
-      pdf.text(`Seite ${p} / ${totalPages}`, pageW - margin, pageH - 5, { align: 'right' });
-      pdf.setFontSize(6.5);
-      pdf.setTextColor(180, 175, 168);
-      pdf.text('Created by M.G.', pageW / 2, pageH - 5, { align: 'center' });
+      drawWatermarkAndFooter(pdf, pageW, pageH, margin, watermarkTile, p, totalPages);
     }
 
     // Generate filename
