@@ -195,6 +195,19 @@
   .sketch-hint { color: var(--muted); font-size: 12px; text-align: center; pointer-events: none; position: relative; z-index: 1; }
   .sketch-hint svg { display: block; margin: 0 auto 6px; opacity: 0.4; }
 
+  /* LICHTAUSSCHNITT / LÜFTUNGSGITTER MINI-SKETCH */
+  .lg-sketch-wrap {
+    position: relative; width: 100%; min-height: 120px;
+    border: 1.5px dashed var(--border-strong); border-radius: 6px;
+    background: repeating-linear-gradient(0deg, transparent, transparent 24px, #E8E5DF 24px, #E8E5DF 25px),
+    repeating-linear-gradient(90deg, transparent, transparent 24px, #E8E5DF 24px, #E8E5DF 25px);
+    background-color: #FAFAF8; overflow: hidden;
+  }
+  .lg-sketch-hint {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; color: var(--muted); font-size: 12px; padding: 10px; pointer-events: none; z-index: 1;
+  }
+
   /* DRAW CANVAS (sketch + signatures) */
   .draw-canvas {
     position: absolute; inset: 0; width: 100%; height: 100%;
@@ -470,9 +483,17 @@
       <div class="field-row">
         <span class="field-label">Türart</span>
         <div class="check-group">
-          <label class="check-item"><input type="radio" name="tuerart"> Innentür</label>
-          <label class="check-item"><input type="radio" name="tuerart"> Außentür</label>
-          <label class="check-item"><input type="radio" name="tuerart"> Hauseingang</label>
+          <label class="check-item"><input type="radio" name="tuerart"> Stahlblechtür</label>
+          <label class="check-item"><input type="radio" name="tuerart"> Holztür</label>
+          <label class="check-item"><input type="radio" name="tuerart"> Rohrrahmen-Stahl</label>
+          <label class="check-item"><input type="radio" name="tuerart"> Rohrrahmen-Alu</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Einsatzart</span>
+        <div class="check-group">
+          <label class="check-item"><input type="radio" name="einsatzart"> Innentür</label>
+          <label class="check-item"><input type="radio" name="einsatzart"> Außentür</label>
         </div>
       </div>
       <div class="field-row">
@@ -482,6 +503,7 @@
           <label class="check-item"><input type="radio" name="brand"> T30-1 / EI2 30</label>
           <label class="check-item"><input type="radio" name="brand"> T60 / EI2 60</label>
           <label class="check-item"><input type="radio" name="brand"> T90 / EI2 90</label>
+          <label class="check-item"><input type="radio" name="brand"> T120 / EI2 120</label>
         </div>
       </div>
       <div class="field-row">
@@ -490,6 +512,15 @@
           <label class="check-item"><input type="radio" name="rauch"> Keine</label>
           <label class="check-item"><input type="radio" name="rauch"> RS (EN 1634-3)</label>
           <label class="check-item"><input type="radio" name="rauch"> RS + Dichtung</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Rauchschutz-Ausführung</span>
+        <div class="check-group">
+          <label class="check-item"><input type="radio" name="rauchausf"> Bodendichtung</label>
+          <label class="check-item"><input type="radio" name="rauchausf"> Bodendichtung mit Auflaufschwelle</label>
+          <label class="check-item"><input type="radio" name="rauchausf"> Anschlagdichtung umlaufend</label>
+          <label class="check-item"><input type="radio" name="rauchausf"> Sonstige</label>
         </div>
       </div>
       <div class="field-row">
@@ -509,9 +540,34 @@
           <label class="check-item"><input type="radio" name="fluegel"> 2-flügelig (ungleich)</label>
         </div>
       </div>
+      <div class="divider"></div>
+      <div class="field-row">
+        <span class="field-label">Lichtausschnitt</span>
+        <div class="check-group">
+          <label class="check-item"><input type="checkbox" name="lichtausschnitt"> vorhanden</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Lüftungsgitter</span>
+        <div class="check-group">
+          <label class="check-item"><input type="checkbox" name="lueftungsgitter"> vorhanden</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Position / Maße</span>
+        <div class="lg-sketch-wrap">
+          <canvas class="draw-canvas" id="lgSketchCanvas"></canvas>
+          <div class="lg-sketch-hint">Position &amp; Maße von Lichtausschnitt / Lüftungsgitter einzeichnen<br><small>besonders im Randbereich des Türblatts</small></div>
+        </div>
+      </div>
+      <div class="draw-toolbar">
+        <button class="btn btn-secondary" style="font-size:11px;padding:6px 14px;box-shadow:none;" onclick="clearLgSketch()">
+          🗑️ Zeichnung löschen
+        </button>
+      </div>
       <div class="field-row">
         <span class="field-label">Sonstige Angaben</span>
-        <input class="field-input" type="text" placeholder="z. B. Glasausschnitt, Lüftungsgitter …">
+        <input class="field-input" type="text" placeholder="z. B. Glasausschnitt, Spion, Briefkastenschlitz …">
       </div>
     </div>
   </div>
@@ -691,6 +747,8 @@
           <label class="check-item"><input type="radio" name="band"> Rollenband</label>
           <label class="check-item"><input type="radio" name="band"> Verdecktband</label>
           <label class="check-item"><input type="radio" name="band"> Klotzband</label>
+          <label class="check-item"><input type="radio" name="band"> Konstruktionsband</label>
+          <label class="check-item"><input type="radio" name="band"> 3-D Band</label>
         </div>
       </div>
       <div class="field-row">
@@ -705,6 +763,14 @@
           <label class="check-item"><input type="radio" name="schloss"> Panikschloss</label>
           <label class="check-item"><input type="radio" name="schloss"> Riegelschloss</label>
           <label class="check-item"><input type="radio" name="schloss"> Magnetschloss</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Panikart</span>
+        <div class="check-group">
+          <label class="check-item"><input type="radio" name="panikart"> Typ B (Treibriegel)</label>
+          <label class="check-item"><input type="radio" name="panikart"> Typ E (Druckstange)</label>
+          <label class="check-item"><input type="radio" name="panikart"> Typ A (Drücker/Stoßplatte)</label>
         </div>
       </div>
       <div class="field-row">
@@ -751,6 +817,21 @@
           <label class="check-item"><input type="radio" name="schliess"> Obenband-Türschließer</label>
           <label class="check-item"><input type="radio" name="schliess"> Eingebaut (i. Blatt)</label>
           <label class="check-item"><input type="radio" name="schliess"> Bodenanker</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Montageort</span>
+        <div class="check-group">
+          <label class="check-item"><input type="radio" name="montageort"> Bandseite</label>
+          <label class="check-item"><input type="radio" name="montageort"> Bandgegenseite</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Feststellung</span>
+        <div class="check-group">
+          <label class="check-item"><input type="radio" name="feststellung"> Keine</label>
+          <label class="check-item"><input type="radio" name="feststellung"> Mechanisch</label>
+          <label class="check-item"><input type="radio" name="feststellung"> Elektro-Mechanisch</label>
         </div>
       </div>
       <div class="field-row">
@@ -1037,6 +1118,12 @@ function clearSignature(id) {
   clearCanvas(drawCanvases[id]);
 }
 
+function clearLgSketch() {
+  clearCanvas(drawCanvases['lgSketchCanvas']);
+  const hint = document.querySelector('.lg-sketch-hint');
+  if (hint) hint.style.display = '';
+}
+
 // Hide the sketch hint as soon as the user starts drawing
 function initSketchHintToggle() {
   const sketchState = drawCanvases['sketchCanvas'];
@@ -1046,12 +1133,22 @@ function initSketchHintToggle() {
   canvas.addEventListener('pointerdown', () => { hint.style.display = 'none'; });
 }
 
+// Hide the Lichtausschnitt/Lüftungsgitter sketch hint once drawing starts
+function initLgSketchHintToggle() {
+  const state = drawCanvases['lgSketchCanvas'];
+  const hint = document.querySelector('.lg-sketch-hint');
+  if (!state || !hint) return;
+  state.canvas.addEventListener('pointerdown', () => { hint.style.display = 'none'; });
+}
+
 // Initialize all drawing canvases
 function initDrawCanvases() {
   setupDrawCanvas(document.getElementById('sketchCanvas'));
   setupDrawCanvas(document.getElementById('signCanvas1'));
   setupDrawCanvas(document.getElementById('signCanvas2'));
+  setupDrawCanvas(document.getElementById('lgSketchCanvas'));
   initSketchHintToggle();
+  initLgSketchHintToggle();
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initDrawCanvases);
@@ -1474,7 +1571,7 @@ function drawMassSectionNative(pdf, section, pageW, pageH, margin, contentW, cur
 // for these sections, since certain combinations of custom radio/checkbox
 // styling and CSS grid (.field-row.double) have been observed to trigger
 // "IndexSizeError" on iOS Safari regardless of canvas size.
-function drawFieldRowSectionNative(pdf, section, sectionNumber, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap) {
+async function drawFieldRowSectionNative(pdf, section, sectionNumber, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap) {
   const navy = [0, 27, 67];
   const orange = [217, 94, 31];
   const grey = [107, 122, 141];
@@ -1531,6 +1628,52 @@ function drawFieldRowSectionNative(pdf, section, sectionNumber, pageW, pageH, ma
     }
 
     if (!child.classList.contains('field-row')) continue;
+
+    // Position/Maße row for Lichtausschnitt/Lüftungsgitter contains a
+    // freehand .lg-sketch-wrap canvas instead of a normal value cell.
+    const lgWrap = child.querySelector('.lg-sketch-wrap');
+    if (lgWrap) {
+      const labelEl0 = child.querySelector('.field-label');
+      const labelText0 = labelEl0 ? labelEl0.textContent.replace(/\s+/g, ' ').trim() : '';
+      const canvas = lgWrap.querySelector('canvas');
+      const state = (typeof drawCanvases !== 'undefined' && canvas) ? drawCanvases[canvas.id] : null;
+
+      const boxH = 45; // mm
+      const rowH = lineH + boxH + 2;
+      ensureSpace(rowH);
+
+      pdf.setTextColor(grey[0], grey[1], grey[2]);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7);
+      pdf.text(labelText0.toUpperCase(), margin + padX, cursorY + 3.2);
+
+      const boxY = cursorY + lineH;
+      pdf.setDrawColor(borderGrey[0], borderGrey[1], borderGrey[2]);
+      pdf.setLineWidth(0.3);
+      pdf.rect(margin, boxY, contentW, boxH, 'S');
+
+      if (state && state.hasInk) {
+        try {
+          const dataUrl = canvas.toDataURL('image/png', 1.0);
+          const imgRatio = canvas.width / canvas.height;
+          const boxRatio = contentW / boxH;
+          let drawW, drawH;
+          if (imgRatio > boxRatio) { drawW = contentW; drawH = contentW / imgRatio; }
+          else { drawH = boxH; drawW = boxH * imgRatio; }
+          const offsetX = margin + (contentW - drawW) / 2;
+          const offsetY = boxY + (boxH - drawH) / 2;
+          pdf.addImage(dataUrl, 'PNG', offsetX, offsetY, drawW, drawH);
+        } catch (e) { /* ignore, leave box empty */ }
+      } else {
+        pdf.setTextColor(grey[0], grey[1], grey[2]);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.text('(keine Zeichnung)', margin + contentW / 2, boxY + boxH / 2, { align: 'center', baseline: 'middle' });
+      }
+
+      cursorY += rowH + 2;
+      continue;
+    }
 
     const isDouble = child.classList.contains('double');
     const allSpans = Array.from(child.children);
@@ -2082,14 +2225,24 @@ async function exportPDF() {
         continue;
       }
 
+      const sectionNumEl = section.querySelector('.section-title .num');
+      const sectionNum = sectionNumEl ? sectionNumEl.textContent.trim() : '';
+
+      // Section 2 ("Türart & Nutzung") now contains a live <canvas> for
+      // sketching the Lichtausschnitt/Lüftungsgitter position. As with the
+      // other canvas-containing sections, snapshot it natively rather than
+      // relying on html2canvas to capture the <canvas> bitmap on iOS Safari.
+      if (sectionNum === '2') {
+        cursorY = await drawFieldRowSectionNative(pdf, section, sectionNum, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap);
+        continue;
+      }
+
       // Section 5 ("Beschläge") combines many .check-group radio sets with a
       // .field-row.double grid; this specific combination has been observed
       // to trigger IndexSizeError in html2canvas on iOS Safari regardless of
       // canvas size. Render it natively as vector text instead.
-      const sectionNumEl = section.querySelector('.section-title .num');
-      const sectionNum = sectionNumEl ? sectionNumEl.textContent.trim() : '';
       if (sectionNum === '5') {
-        cursorY = drawFieldRowSectionNative(pdf, section, sectionNum, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap);
+        cursorY = await drawFieldRowSectionNative(pdf, section, sectionNum, pageW, pageH, margin, contentW, cursorY, bottomLimit, gap);
         continue;
       }
 
