@@ -316,12 +316,12 @@
   }
 
   /* PAYMENT GATE */
-  #pay-gate {
+  #pay-gate, #code-gate {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.6); z-index: 1000;
     align-items: center; justify-content: center;
   }
-  #pay-gate.active { display: flex; }
+  #pay-gate.active, #code-gate.active { display: flex; }
   .pay-box {
     background: #fff; border-radius: 18px; padding: 32px 28px;
     text-align: center; max-width: 320px; width: 90%;
@@ -374,6 +374,21 @@
 </style>
 </head>
 <body>
+
+<!-- MITARBEITER-CODE GANZ AM ANFANG -->
+<div id="code-gate">
+  <div class="pay-box">
+    <div class="pay-icon">🔑</div>
+    <h2>Mitarbeiter-Code</h2>
+    <p class="pay-sub">Bitte zu Beginn eingeben – wird automatisch in „Aufgenommen von“ und beim PDF-Export übernommen.</p>
+    <div class="pay-code-wrap" style="margin-top:18px;">
+      <input id="code-input-start" type="text" placeholder="Mitarbeitercode" maxlength="10" autocomplete="off">
+      <button onclick="checkStartCode()">✓</button>
+    </div>
+    <div id="code-msg-start"></div>
+    <button class="pay-cancel" onclick="skipStartCode()">Ohne Code fortfahren</button>
+  </div>
+</div>
 
 <!-- PDF EXPORT OVERLAY -->
 <div id="export-overlay">
@@ -467,7 +482,7 @@
         <span class="field-label">Datum</span>
         <input class="field-input" id="field-datum" type="date">
         <span class="field-label">Aufgenommen von</span>
-        <input class="field-input" type="text" placeholder="Name">
+        <input class="field-input" id="field-aufgenommen" type="text" placeholder="Name">
       </div>
       <div class="field-row double">
         <span class="field-label">Etage / Bereich</span>
@@ -2403,19 +2418,73 @@ function resetForm() {
   const d = new Date();
   document.getElementById('field-datum').value =
     d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  // Keep the technician's name filled in if a code was already verified.
+  if (verifiedEmployeeCode && EMPLOYEE_CODES[verifiedEmployeeCode]) {
+    document.getElementById('field-aufgenommen').value = EMPLOYEE_CODES[verifiedEmployeeCode];
+  }
 }
 
   // ── PAYMENT GATE ─────────────────────────────────────
-  const EMPLOYEE_CODE = '7808';
+  const EMPLOYEE_CODES = {
+    '78080': 'Marko Gerdau',
+    '78081': 'Norbert Clour',
+    '78082': 'Techniker',
+    '78084': 'Bernd Nikolaus',
+    '78085': 'Armin Bolz',
+    '78086': 'Aussendienst1',
+    '78087': 'Aussendienst2',
+    '78088': 'Außendienst 3'
+  };
   const PAYPAL_ME = 'https://www.paypal.me/marko436/0.09EUR';
   let paypalClicked = false;
   let pendingExportMode = 'save';
+  let verifiedEmployeeCode = '';
+
+  // Shared validation: checks a code, and if valid, remembers it and
+  // fills the "Aufgenommen von" field with the matching name.
+  function applyEmployeeCode(code) {
+    const name = EMPLOYEE_CODES[code];
+    if (!name) return false;
+    verifiedEmployeeCode = code;
+    localStorage.setItem('lastEmployeeCode', code);
+    const aufgenommenField = document.getElementById('field-aufgenommen');
+    if (aufgenommenField) aufgenommenField.value = name;
+    return true;
+  }
+
+  // ── CODE-ABFRAGE GANZ AM ANFANG DES DOKUMENTS ────────
+  function checkStartCode() {
+    const inp = document.getElementById('code-input-start');
+    const val = inp.value.trim();
+    const msg = document.getElementById('code-msg-start');
+    if (applyEmployeeCode(val)) {
+      msg.textContent = '✓ Code akzeptiert – ' + EMPLOYEE_CODES[val];
+      msg.className = 'ok';
+      setTimeout(() => { document.getElementById('code-gate').classList.remove('active'); }, 700);
+    } else {
+      msg.textContent = '✗ Ungültiger Code.';
+      msg.className = 'err';
+      inp.value = '';
+      inp.focus();
+    }
+  }
+
+  function skipStartCode() {
+    document.getElementById('code-gate').classList.remove('active');
+  }
 
   function checkPayment(mode) {
-    // Always show the payment/code gate for every export.
     pendingExportMode = mode || 'save';
+    // A code was already verified at the start of the document –
+    // no need to ask again, just export directly.
+    if (verifiedEmployeeCode && EMPLOYEE_CODES[verifiedEmployeeCode]) {
+      exportPDF(pendingExportMode);
+      return;
+    }
     paypalClicked = false;
-    document.getElementById('code-input').value = '';
+    // Pre-fill the code field with the last successfully used code,
+    // so the technician doesn't have to retype it every export.
+    document.getElementById('code-input').value = localStorage.getItem('lastEmployeeCode') || '';
     document.getElementById('code-msg').textContent = '';
     document.getElementById('pay-gate').classList.add('active');
   }
@@ -2444,7 +2513,7 @@ function resetForm() {
   function checkCode() {
     const val = document.getElementById('code-input').value.trim();
     const msg = document.getElementById('code-msg');
-    if (val === EMPLOYEE_CODE) {
+    if (applyEmployeeCode(val)) {
       msg.textContent = '✓ Code akzeptiert – PDF wird erstellt …';
       msg.className = 'ok';
       setTimeout(() => { closePayGate(); exportPDF(pendingExportMode); }, 800);
@@ -2456,10 +2525,19 @@ function resetForm() {
     }
   }
 
-  // Allow Enter key in code input
+  // Allow Enter key in both code inputs; show the start gate on load.
   document.addEventListener('DOMContentLoaded', () => {
     const inp = document.getElementById('code-input');
     if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') checkCode(); });
+
+    const startInp = document.getElementById('code-input-start');
+    if (startInp) {
+      const saved = localStorage.getItem('lastEmployeeCode');
+      if (saved) startInp.value = saved;
+      startInp.addEventListener('keydown', e => { if (e.key === 'Enter') checkStartCode(); });
+    }
+    const startGate = document.getElementById('code-gate');
+    if (startGate) startGate.classList.add('active');
   });
 
 
