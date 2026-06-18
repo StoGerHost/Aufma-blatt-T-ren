@@ -89,6 +89,17 @@
   .field-row { display: grid; grid-template-columns: 200px 1fr; gap: 8px; align-items: center; min-height: 30px; }
   .field-row.double { grid-template-columns: 200px 1fr 160px 1fr; }
   .field-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.03em; text-transform: uppercase; }
+  /* MEHRFACH-TÜR (baugleiche Türen an weiteren Standorten) */
+  .multidoor-block { background: var(--field-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 2px; }
+  .multidoor-hint { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .multidoor-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .multidoor-del { background: none; border: none; color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer; padding: 4px 6px; }
+  .multidoor-del:hover { color: #C0392B; }
+  .multidoor-add { font-size: 11px; padding: 6px 14px; box-shadow: none; margin-top: 2px; }
+  @media (max-width: 480px) {
+    .multidoor-row { grid-template-columns: 1fr 1fr; }
+    .multidoor-del { grid-column: 1 / -1; justify-self: end; }
+  }
   .field-input {
     background: var(--field-bg); border: 1.5px solid var(--border); border-radius: 8px;
     padding: 5px 10px; font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 13px;
@@ -489,6 +500,18 @@
         <input class="field-input" type="text" placeholder="z. B. EG, 1.OG, Keller">
         <span class="field-label">Raumbezeichnung</span>
         <input class="field-input" type="text" placeholder="z. B. Büro, Flur, WC">
+      </div>
+      <div class="field-row">
+        <span class="field-label">Baugleiche Türen</span>
+        <label class="check-item">
+          <input type="checkbox" id="multidoor-toggle" onchange="toggleMultiDoor()">
+          Diese Tür ist mehrfach baugleich vorhanden
+        </label>
+      </div>
+      <div class="multidoor-block" id="multidoor-block" style="display:none;">
+        <div class="multidoor-hint">Gleiche Maße &amp; Ausstattung – außerdem vorhanden an:</div>
+        <div id="multidoor-list"></div>
+        <button type="button" class="btn btn-secondary multidoor-add" onclick="addMultiDoorRow()">+ Weiterer Standort</button>
       </div>
     </div>
   </div>
@@ -2402,6 +2425,27 @@ async function exportPDF(mode = 'save') {
   }
 }
 
+// ── BAUGLEICHE TÜREN (MEHRFACH-TÜR) ───────────────────
+function toggleMultiDoor() {
+  const on = document.getElementById('multidoor-toggle').checked;
+  const block = document.getElementById('multidoor-block');
+  block.style.display = on ? 'block' : 'none';
+  if (on && !document.getElementById('multidoor-list').children.length) {
+    addMultiDoorRow();
+  }
+}
+
+function addMultiDoorRow() {
+  const list = document.getElementById('multidoor-list');
+  const row = document.createElement('div');
+  row.className = 'multidoor-row';
+  row.innerHTML =
+    '<input class="field-input" type="text" placeholder="Etage / Bereich">' +
+    '<input class="field-input" type="text" placeholder="Raumbezeichnung">' +
+    '<button type="button" class="multidoor-del" onclick="this.parentElement.remove()">✕</button>';
+  list.appendChild(row);
+}
+
 // ── RESET ─────────────────────────────────────────────
 function resetForm() {
   if (!confirm('Alle Eingaben zurücksetzen?')) return;
@@ -2415,6 +2459,8 @@ function resetForm() {
   area.style.backgroundImage = '';
   area.querySelector('.sketch-hint').style.display = '';
   document.getElementById('gps-status').textContent = '';
+  document.getElementById('multidoor-list').innerHTML = '';
+  document.getElementById('multidoor-block').style.display = 'none';
   const d = new Date();
   document.getElementById('field-datum').value =
     d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
