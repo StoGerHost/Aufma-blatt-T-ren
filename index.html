@@ -640,7 +640,7 @@
     <div class="admin-section-label">Mitarbeiter-Codes &amp; Namen</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">
       Codes und Namen werden verschlüsselt auf diesem Gerät gespeichert.<br>
-      Admin-Code <span class="admin-code-badge">78O8</span> erscheint nicht in der Liste.
+      Admin-Code <span class="admin-code-badge" id="admin-code-display"></span> erscheint nicht in der Liste.
     </div>
 
     <div class="admin-employee-list" id="admin-employee-list">
@@ -865,41 +865,40 @@
             <strong>DIN Links (DIN L)</strong>
           </div>
           <div class="din-svg-wrap">
-            <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DIN Links Schemazeichnung">
-              <!-- Wandöffnung -->
-              <rect x="10" y="10" width="140" height="180" rx="2" fill="#EEF2F8" stroke="#D2DAE3" stroke-width="1.5"/>
-              <!-- Türblatt -->
-              <rect x="24" y="18" width="90" height="164" rx="2" fill="#DDEAF3" stroke="#001B43" stroke-width="2"/>
-              <!-- Türblatt Schraffur oben/unten (Orientierung) -->
-              <rect x="24" y="18" width="90" height="8" fill="#001B43" opacity="0.12"/>
-              <rect x="24" y="174" width="90" height="8" fill="#001B43" opacity="0.12"/>
-              <!-- Band links (3 Bänder) -->
-              <rect x="18" y="30" width="12" height="18" rx="1" fill="#001B43"/>
-              <rect x="18" y="91" width="12" height="18" rx="1" fill="#001B43"/>
-              <rect x="18" y="152" width="12" height="18" rx="1" fill="#001B43"/>
-              <!-- Band-Verbindung zur Zarge -->
-              <line x1="10" y1="39" x2="18" y2="39" stroke="#001B43" stroke-width="2"/>
-              <line x1="10" y1="100" x2="18" y2="100" stroke="#001B43" stroke-width="2"/>
-              <line x1="10" y1="161" x2="18" y2="161" stroke="#001B43" stroke-width="2"/>
-              <!-- Drücker rechts -->
-              <circle cx="106" cy="100" r="5" fill="#001B43"/>
-              <rect x="111" y="97" width="14" height="6" rx="3" fill="#001B43"/>
-              <!-- Schloss -->
-              <rect x="110" y="88" width="6" height="24" rx="1" fill="none" stroke="#001B43" stroke-width="1.5"/>
-              <!-- Schwenkbogen (öffnet nach rechts/oben) -->
-              <path d="M114 18 A90 90 0 0 1 114 182" fill="none" stroke="#001B43" stroke-width="1" stroke-dasharray="5 3" opacity="0.4"/>
-              <!-- Öffnungspfeil -->
-              <path d="M114 100 Q148 60 148 18" fill="none" stroke="#001B43" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-l)"/>
+            <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DIN Links Schemazeichnung" id="svg-din-l">
               <defs>
                 <marker id="arr-l" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
                   <path d="M0,0 L8,4 L0,8 Z" fill="#001B43"/>
                 </marker>
               </defs>
-              <!-- Label Band -->
+              <!-- Wandöffnung -->
+              <rect x="10" y="10" width="140" height="180" rx="2" fill="#EEF2F8" stroke="#D2DAE3" stroke-width="1.5"/>
+              <!-- Zarge links (Bandseite) - fest -->
+              <rect x="10" y="10" width="14" height="180" fill="#C8D8E8" stroke="#8BA3BA" stroke-width="1"/>
+              <!-- Türblatt-Gruppe: dreht um Bandpunkt links oben (24,18) -->
+              <g id="door-l" style="transform-origin:24px 18px; transform:rotate(0deg);">
+                <!-- Schwenkbogen (statisch, Andeutung) -->
+                <path d="M114 18 A90 90 0 0 1 114 182" fill="none" stroke="#001B43" stroke-width="0.8" stroke-dasharray="4 3" opacity="0.25"/>
+                <!-- Türblatt -->
+                <rect class="tuer-blatt" x="24" y="18" width="90" height="164" rx="2" fill="#DDEAF3" stroke="#001B43" stroke-width="2"/>
+                <rect x="24" y="18" width="90" height="8" fill="#001B43" opacity="0.12"/>
+                <rect x="24" y="174" width="90" height="8" fill="#001B43" opacity="0.12"/>
+                <!-- Drücker rechts -->
+                <circle cx="106" cy="100" r="5" fill="#001B43"/>
+                <rect x="111" y="97" width="14" height="6" rx="3" fill="#001B43"/>
+                <!-- Schloss -->
+                <rect x="110" y="88" width="6" height="24" rx="1" fill="none" stroke="#001B43" stroke-width="1.5"/>
+              </g>
+              <!-- Bänder links (fest an Zarge) -->
+              <rect x="18" y="30" width="12" height="18" rx="1" fill="#001B43"/>
+              <rect x="18" y="91" width="12" height="18" rx="1" fill="#001B43"/>
+              <rect x="18" y="152" width="12" height="18" rx="1" fill="#001B43"/>
+              <line x1="10" y1="39" x2="18" y2="39" stroke="#001B43" stroke-width="2"/>
+              <line x1="10" y1="100" x2="18" y2="100" stroke="#001B43" stroke-width="2"/>
+              <line x1="10" y1="161" x2="18" y2="161" stroke="#001B43" stroke-width="2"/>
+              <!-- Labels -->
               <text x="6" y="8" font-family="-apple-system, sans-serif" font-size="8" fill="#6B7A8D" font-weight="600">BAND</text>
-              <!-- Label Griff -->
-              <text x="118" y="108" font-family="-apple-system, sans-serif" font-size="8" fill="#001B43">Griff</text>
-              <!-- Label Öffnung -->
+              <text x="118" y="108" font-family="-apple-system, sans-serif" font-size="8" fill="#001B43" id="lbl-griff-l">Griff</text>
               <text x="130" y="55" font-family="-apple-system, sans-serif" font-size="7.5" fill="#001B43" opacity="0.7">öffnet</text>
             </svg>
           </div>
@@ -916,40 +915,40 @@
             <strong>DIN Rechts (DIN R)</strong>
           </div>
           <div class="din-svg-wrap">
-            <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DIN Rechts Schemazeichnung">
-              <!-- Wandöffnung -->
-              <rect x="10" y="10" width="140" height="180" rx="2" fill="#EEF2F8" stroke="#D2DAE3" stroke-width="1.5"/>
-              <!-- Türblatt -->
-              <rect x="46" y="18" width="90" height="164" rx="2" fill="#DDEAF3" stroke="#001B43" stroke-width="2"/>
-              <rect x="46" y="18" width="90" height="8" fill="#001B43" opacity="0.12"/>
-              <rect x="46" y="174" width="90" height="8" fill="#001B43" opacity="0.12"/>
-              <!-- Band rechts (3 Bänder) -->
-              <rect x="130" y="30" width="12" height="18" rx="1" fill="#001B43"/>
-              <rect x="130" y="91" width="12" height="18" rx="1" fill="#001B43"/>
-              <rect x="130" y="152" width="12" height="18" rx="1" fill="#001B43"/>
-              <!-- Band-Verbindung zur Zarge -->
-              <line x1="142" y1="39" x2="150" y2="39" stroke="#001B43" stroke-width="2"/>
-              <line x1="142" y1="100" x2="150" y2="100" stroke="#001B43" stroke-width="2"/>
-              <line x1="142" y1="161" x2="150" y2="161" stroke="#001B43" stroke-width="2"/>
-              <!-- Drücker links -->
-              <circle cx="54" cy="100" r="5" fill="#001B43"/>
-              <rect x="35" y="97" width="14" height="6" rx="3" fill="#001B43"/>
-              <!-- Schloss -->
-              <rect x="44" y="88" width="6" height="24" rx="1" fill="none" stroke="#001B43" stroke-width="1.5"/>
-              <!-- Schwenkbogen -->
-              <path d="M46 18 A90 90 0 0 0 46 182" fill="none" stroke="#001B43" stroke-width="1" stroke-dasharray="5 3" opacity="0.4"/>
-              <!-- Öffnungspfeil -->
-              <path d="M46 100 Q12 60 12 18" fill="none" stroke="#001B43" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-r)"/>
+            <svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DIN Rechts Schemazeichnung" id="svg-din-r">
               <defs>
                 <marker id="arr-r" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
                   <path d="M0,0 L8,4 L0,8 Z" fill="#001B43"/>
                 </marker>
               </defs>
-              <!-- Label Band -->
+              <!-- Wandöffnung -->
+              <rect x="10" y="10" width="140" height="180" rx="2" fill="#EEF2F8" stroke="#D2DAE3" stroke-width="1.5"/>
+              <!-- Zarge rechts (Bandseite) - fest -->
+              <rect x="136" y="10" width="14" height="180" fill="#C8D8E8" stroke="#8BA3BA" stroke-width="1"/>
+              <!-- Türblatt-Gruppe: dreht um Bandpunkt rechts oben (136,18) -->
+              <g id="door-r" style="transform-origin:136px 18px; transform:rotate(0deg);">
+                <!-- Schwenkbogen -->
+                <path d="M46 18 A90 90 0 0 0 46 182" fill="none" stroke="#001B43" stroke-width="0.8" stroke-dasharray="4 3" opacity="0.25"/>
+                <!-- Türblatt -->
+                <rect class="tuer-blatt" x="46" y="18" width="90" height="164" rx="2" fill="#DDEAF3" stroke="#001B43" stroke-width="2"/>
+                <rect x="46" y="18" width="90" height="8" fill="#001B43" opacity="0.12"/>
+                <rect x="46" y="174" width="90" height="8" fill="#001B43" opacity="0.12"/>
+                <!-- Drücker links -->
+                <circle cx="54" cy="100" r="5" fill="#001B43"/>
+                <rect x="35" y="97" width="14" height="6" rx="3" fill="#001B43"/>
+                <!-- Schloss -->
+                <rect x="44" y="88" width="6" height="24" rx="1" fill="none" stroke="#001B43" stroke-width="1.5"/>
+              </g>
+              <!-- Bänder rechts (fest an Zarge) -->
+              <rect x="130" y="30" width="12" height="18" rx="1" fill="#001B43"/>
+              <rect x="130" y="91" width="12" height="18" rx="1" fill="#001B43"/>
+              <rect x="130" y="152" width="12" height="18" rx="1" fill="#001B43"/>
+              <line x1="142" y1="39" x2="150" y2="39" stroke="#001B43" stroke-width="2"/>
+              <line x1="142" y1="100" x2="150" y2="100" stroke="#001B43" stroke-width="2"/>
+              <line x1="142" y1="161" x2="150" y2="161" stroke="#001B43" stroke-width="2"/>
+              <!-- Labels -->
               <text x="133" y="8" font-family="-apple-system, sans-serif" font-size="8" fill="#6B7A8D" font-weight="600">BAND</text>
-              <!-- Label Griff -->
               <text x="22" y="108" font-family="-apple-system, sans-serif" font-size="8" fill="#001B43">Griff</text>
-              <!-- Label Öffnung -->
               <text x="8" y="55" font-family="-apple-system, sans-serif" font-size="7.5" fill="#001B43" opacity="0.7">öffnet</text>
             </svg>
           </div>
@@ -1245,7 +1244,7 @@
 
   <!-- FOOTER -->
   <div class="doc-footer">
-    <span>Türblatt Aufmaß · Aufnahmeprotokoll · Version 1.6 &nbsp;·&nbsp; Created by M.G.</span>
+    <span>Türblatt Aufmaß · Aufnahmeprotokoll · Version 1.6 &nbsp;·&nbsp; <span id="footer-credit"></span></span>
     <span id="pdf-filename-preview" class="pdf-filename-hint">Tuerblatt_Aufmass_YYYY-MM-DD.pdf</span>
   </div>
 
@@ -1268,18 +1267,20 @@ let activeDoorIndex = 0;
 let deferredInstallPrompt = null;
 
 // Admin + Employee Codes
-const ADMIN_CODE = '78O8';
+const ADMIN_CODE = atob('NzhPOA==');
 const EMPLOYEE_CODES_KEY = 'aufmass_employee_codes';
-const DEFAULT_EMPLOYEE_CODES = {
-  '78080': 'Marko Gerdau',
-  '78081': 'Norbert Clour',
-  '78082': 'Techniker',
-  '78084': 'Bernd Nikolaus',
-  '78085': 'Armin Bolz',
-  '78086': 'Aussendienst1',
-  '78087': 'Aussendienst2',
-  '78088': 'Außendienst 3'
-};
+const DEFAULT_EMPLOYEE_CODES = (function(){
+  const _d = atob, _k = [
+    'NzgwODA=','NzgwODE=','NzgwODI=','NzgwODQ=',
+    'NzgwODU=','NzgwODY=','NzgwODc=','NzgwODg='
+  ], _v = [
+    'TWFya28gR2VyZGF1','Tm9yYmVydCBDbG91cg==','VGVjaG5pa2Vy',
+    'QmVybmQgTmlrb2xhdXM=','QXJtaW4gQm9seg==','QXVzc2VuZGllbnN0MQ==',
+    'QXVzc2VuZGllbnN0Mg==','QXXDn2VuZGllbnN0IDM='
+  ], o = {};
+  _k.forEach((k,i) => { o[_d(k)] = _d(_v[i]); });
+  return o;
+})();
 function loadEmployeeCodes() {
   try {
     const saved = localStorage.getItem(EMPLOYEE_CODES_KEY);
@@ -1293,7 +1294,7 @@ function saveEmployeeCodes(codes) {
 let EMPLOYEE_CODES = loadEmployeeCodes();
 
 // Payment gate
-const PAYPAL_ME = 'https://www.paypal.me/marko436/0.09EUR';
+const PAYPAL_ME = atob('aHR0cHM6Ly93d3cucGF5cGFsLm1lL21hcmtvNDM2LzAuMDlFVVI=');
 let paypalClicked = false;
 let pendingExportMode = 'save';
 let verifiedEmployeeCode = '';
@@ -1302,10 +1303,67 @@ let verifiedEmployeeCode = '';
 // (footer-date and field-datum are set in DOMContentLoaded below)
 
 // ── DIN SELECTION ─────────────────────────────────────
+// ── DIN SELECTION + DOOR ANIMATION ───────────────────
+// CSS perspective + rotateY um die Bandkante.
+// DIN L: Band links  → rotateY positiv  (Griffseite schwingt von Betrachter weg nach rechts)
+// DIN R: Band rechts → rotateY negativ  (Griffseite schwingt von Betrachter weg nach links)
+
+function animateDoor(side, open) {
+  const svgEl = document.getElementById(side === 'L' ? 'svg-din-l' : 'svg-din-r');
+  if (!svgEl) return;
+
+  const startProg = parseFloat(svgEl.dataset.prog || '0');
+  const targetProg = open ? 1 : 0;
+  const duration = 500;
+  const startTime = performance.now();
+
+  // Wrapper braucht perspective damit rotateY 3D wirkt
+  const wrap = svgEl.closest('.din-svg-wrap');
+  if (wrap) wrap.style.perspective = '400px';
+
+  function easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; }
+
+  function applyTransform(prog) {
+    // Tür öffnet bis 70° von sich weg
+    const angle = prog * 70;
+
+    if (side === 'L') {
+      // Band links = linke Kante fixiert → transform-origin links
+      svgEl.style.transformOrigin = 'left center';
+      svgEl.style.transform = `rotateY(${angle}deg)`;
+    } else {
+      // Band rechts = rechte Kante fixiert → transform-origin rechts
+      svgEl.style.transformOrigin = 'right center';
+      svgEl.style.transform = `rotateY(${-angle}deg)`;
+    }
+  }
+
+  function step(now) {
+    const t = Math.min((now - startTime) / duration, 1);
+    const prog = startProg + (targetProg - startProg) * easeInOut(t);
+    applyTransform(prog);
+    svgEl.dataset.prog = String(prog);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 function selectDIN(side) {
-  document.getElementById('din-l').classList.toggle('selected', side === 'L');
-  document.getElementById('din-r').classList.toggle('selected', side === 'R');
+  const cardL = document.getElementById('din-l');
+  const cardR = document.getElementById('din-r');
+  const wasSelected = (side === 'L' ? cardL : cardR).classList.contains('selected');
+
+  cardL.classList.toggle('selected', side === 'L');
+  cardR.classList.toggle('selected', side === 'R');
   document.getElementById('r-din-' + side.toLowerCase()).checked = true;
+
+  if (side === 'L') {
+    animateDoor('L', !wasSelected);
+    animateDoor('R', false);
+  } else {
+    animateDoor('R', !wasSelected);
+    animateDoor('L', false);
+  }
 }
 
 // ── PHOTO UPLOAD ──────────────────────────────────────
@@ -1582,7 +1640,7 @@ function buildWatermarkTile() {
   const cols = Math.ceil(w / stepX) + 4;
   for (let r = -rows; r <= rows; r++) {
     for (let cIdx = -cols; cIdx <= cols; cIdx++) {
-      ctx.fillText('Created by M.G.', cIdx * stepX, r * stepY);
+      ctx.fillText(atob('Q3JlYXRlZCBieSBNLkcu'), cIdx * stepX, r * stepY);
     }
   }
   ctx.restore();
@@ -1608,7 +1666,7 @@ function drawWatermarkAndFooter(pdf, pageW, pageH, margin, watermarkTile, pageNu
   pdf.text(`Seite ${pageNum} / ${totalPages}`, pageW - margin, pageH - 5, { align: 'right' });
   pdf.setFontSize(6.5);
   pdf.setTextColor(180, 175, 168);
-  pdf.text('Created by M.G.', pageW / 2, pageH - 5, { align: 'center' });
+  pdf.text(atob('Q3JlYXRlZCBieSBNLkcu'), pageW / 2, pageH - 5, { align: 'center' });
 }
 
 // Convert a canvas to a data URL and immediately free its backing memory.
@@ -2765,6 +2823,15 @@ function resetForm() {
   document.querySelectorAll('.foto-slot .icon, .foto-slot label').forEach(el => el.style.display = '');
   document.getElementById('din-l').classList.remove('selected');
   document.getElementById('din-r').classList.remove('selected');
+  // Reset door animations
+  ['svg-din-l','svg-din-r'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.transform = '';
+      el.style.transformOrigin = '';
+      el.dataset.prog = '0';
+    }
+  });
   const area = document.getElementById('sketchArea');
   area.style.backgroundImage = '';
   area.querySelector('.sketch-hint').style.display = '';
@@ -2917,6 +2984,12 @@ function resetForm() {
     if (datumEl && !datumEl.value) {
       datumEl.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     }
+
+    // Populate obfuscated references
+    const creditEl = document.getElementById('footer-credit');
+    if (creditEl) creditEl.textContent = atob('Q3JlYXRlZCBieSBNLkcu');
+    const adminBadge = document.getElementById('admin-code-display');
+    if (adminBadge) adminBadge.textContent = ADMIN_CODE;
   });
 
 
